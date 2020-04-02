@@ -1,0 +1,114 @@
+﻿<local:BasePage x:Class="AMCServer2.ServerView"
+                x:TypeArguments="local:ServerInterfaceViewModel"
+                
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:local="clr-namespace:AMCServer2"
+      mc:Ignorable="d" 
+      d:DesignHeight="600" d:DesignWidth="1500"
+      Title="ServerView">
+    <Border Background="White">
+
+        <Grid>
+
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1*"/>
+                <ColumnDefinition Width="2.5*"/>
+            </Grid.ColumnDefinitions>
+
+            <Grid>
+
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="25"/>
+                    <RowDefinition Height="25"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Background="{StaticResource SolidColor_Blue}">
+                    <TextBlock Margin="5,0,0,0" Foreground="White" Text="File explorer" 
+                               VerticalAlignment="Center" HorizontalAlignment="Left" 
+                               FontFamily="Consolas" FontSize="13"/>
+                </Border>
+
+                <Border Grid.Row="1" Background="{StaticResource SolidColor_DarkBlue}">
+                    
+                </Border>
+
+                <Border Grid.Row="2" Background="{StaticResource SolidColor_Gray}">
+                    
+                </Border>
+                
+            </Grid>
+            
+            <Grid Grid.Column="1" Margin="-1,0,0,0">
+
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="1*"/>
+                    <RowDefinition Height="25"/>
+                    <RowDefinition Height="2*"/>
+                </Grid.RowDefinitions>
+
+                <DataGrid Grid.Row="0" Background="White" BorderThickness="0">
+                    <DataGrid.Columns>
+                        
+                        <!-- All columns that shows the data of each client -->
+                        <DataGridTextColumn Header="ID"              Width="50"   Binding="{Binding ID}"                HeaderStyle="{StaticResource ConnectionsListHeaderStyle}"/>
+                        <DataGridTextColumn Header="Remote endpoint" Width="200"  Binding="{Binding ClientConnection}"  HeaderStyle="{StaticResource ConnectionsListHeaderStyle}"/>
+                        <DataGridTextColumn Header="Connected at"    Width="200"  Binding="{Binding ConnenctedTime}"    HeaderStyle="{StaticResource ConnectionsListHeaderStyle}"/>
+                        <DataGridTextColumn Header="Verified"        Width="100"  Binding="{Binding Verified}"          HeaderStyle="{StaticResource ConnectionsListHeaderStyle}"/>
+                        <DataGridTextColumn Header="privileges"      Width="100"  Binding="{Binding AutorisationLevel}" HeaderStyle="{StaticResource ConnectionsListHeaderStyle}"/>
+                        <DataGridTextColumn Header="Muted"           Width="100"  Binding="{Binding Mute}"              HeaderStyle="{StaticResource ConnectionsListHeaderStyle}"/>
+                        <DataGridTextColumn Header="Service"         Width="100"  Binding="{Binding Service}"           HeaderStyle="{StaticResource ConnectionsListHeaderStyle}"/>
+                        
+                        <!-- Just to fill out the empty space-->
+                        <DataGridTextColumn                          Width="*"                                          HeaderStyle="{StaticResource ConnectionsListHeaderStyle}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+                
+                <StackPanel Background="{StaticResource SolidColor_Gray}" Grid.Row="1" Orientation="Horizontal">
+                    <TextBlock Text="{StaticResource TerminalIcon}" FontSize="20" VerticalAlignment="Center" 
+                               Margin="5,0,0,0" Foreground="{StaticResource SolidColor_Green}" FontFamily="{StaticResource FontAwesome}"/>
+                    <TextBlock Margin="5,0,0,0" Foreground="White" Text="Terminal" VerticalAlignment="Center" 
+                               HorizontalAlignment="Left" FontFamily="Consolas" FontSize="13"/>
+                </StackPanel>
+                
+                <ListView Grid.Row="2" ItemsSource="{Binding ServerLog}" BorderThickness="0" Background="Black">
+
+                    <ListView.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Columns="1" VerticalAlignment="Top"/>
+                        </ItemsPanelTemplate>
+                    </ListView.ItemsPanel>
+
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="{x:Type ListViewItem}">
+
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate>
+                                        
+                                        <!-- This is the container for the logitem -->
+                                        <StackPanel Orientation="Horizontal" Margin="5,2,0,2">
+                                            <TextBlock VerticalAlignment="Center" HorizontalAlignment="Left" FontSize="13" FontFamily="Consolas" Visibility="{Binding ShowTime, Converter={local:BoolToVisibilityConverter}}">
+                                                <Run Foreground="{StaticResource SolidColor_Blue}" Text="{Binding EventTime}"/><Run Foreground="White" Text=" :  "/>
+                                            </TextBlock>
+                                            <TextBlock Foreground="White" Text="{Binding Content}"   VerticalAlignment="Center" HorizontalAlignment="Left" FontSize="13" FontFamily="Consolas"/>
+                                        </StackPanel>
+
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                    
+                </ListView>
+
+            </Grid>
+            
+        </Grid>
+        
+    </Border>
+</local:BasePage>
