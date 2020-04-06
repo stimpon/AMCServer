@@ -14,6 +14,16 @@ namespace AMCServer2
         Offline,
 
         /// <summary>
+        /// When the server is starting up
+        /// </summary>
+        StartingUp,
+
+        /// <summary>
+        /// When the server is starting up
+        /// </summary>
+        ShuttingDown,
+
+        /// <summary>
         /// The server is running
         /// </summary>
         Online

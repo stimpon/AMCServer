@@ -13,5 +13,22 @@ namespace AMCServer2
     /// </summary>
     public partial class App : Application
     {
+
+        /// <summary>
+        /// Override the OnStartup method
+        /// </summary>
+        /// <param name="e"></param>
+        protected override void OnStartup(StartupEventArgs e)
+        {
+            // Call the base method
+            base.OnStartup(e);
+
+            // Setup the IoC
+            IoC.Container.SetupIoC();
+
+            // Open the MainWindow
+            Current.MainWindow = new MainWindow();
+            Current.MainWindow.Show();
+        }
     }
 }

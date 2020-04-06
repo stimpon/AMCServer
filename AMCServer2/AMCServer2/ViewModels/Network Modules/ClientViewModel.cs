@@ -6,6 +6,7 @@
     #region Namespaces
     using System;
     using System.Net.Sockets;
+    using System.Security.Cryptography;
     #endregion
 
     /// <summary>
@@ -49,5 +50,15 @@
         /// Has the client verified itself
         /// </summary>
         public bool Verified { get; set; } = false;
+
+        /// <summary>
+        /// RSA public key that will be used when sending data to this client
+        /// (this key will be provided by the client)
+        /// </summary>
+        public RSACryptoServiceProvider Encryptor { get; set; }
+        /// <summary>
+        /// The servers private key
+        /// </summary>
+        public RSACryptoServiceProvider Decryptor { get; set; }
     }
 }

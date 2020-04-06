@@ -13,8 +13,6 @@ namespace AMCServer2
 
             // Set the Datacontext of this View
             this.DataContext = new MainWindowViewModel();
-            // Create the server backend
-            ProgramState.ServerBackend = new Server();
         }
     }
 }

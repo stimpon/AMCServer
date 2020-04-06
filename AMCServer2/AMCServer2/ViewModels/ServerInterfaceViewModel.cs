@@ -21,49 +21,14 @@
         /// Single instance of this ViewModel
         /// </summary>
         public static ServerInterfaceViewModel VM { get; set; }
+        
+        #region Commands
 
         /// <summary>
-        /// These properties will be pulled from the
-        /// server class that lives in the ProgramState
-        /// class
+        /// When a command is exeuted in the terminal
         /// </summary>
-        #region Server properties that should be exposed to the View
+        public RelayCommand ExecuteCommand { get; set; }
 
-        /// <summary>
-        /// Server listening port
-        /// ---------------------------------------------------------
-        /// this propery can only pull the data from the server class
-        /// and not set it
-        /// </summary>
-        public int ListeningPort 
-        {
-            get => ProgramState.ServerBackend.ServerListeningPort;
-            set { }
-        }
-
-        /// <summary>
-        /// The current server state
-        /// ---------------------------------------------------------
-        /// this propery can only pull the data from the server class
-        /// and not set it
-        /// </summary>
-        public ServerStates ServerState 
-        { 
-            get => ProgramState.ServerBackend.ServerState;
-            set { }
-        }
-
-        /// <summary>
-        /// Holds all of the connected clients
-        /// ---------------------------------------------------------
-        /// this propery can only pull the data from the server class
-        /// and not set it
-        /// </summary>
-        public ObservableCollection<ClientViewModel> ActiveConnections 
-        {
-            get => ProgramState.ServerBackend.ActiveConnections;
-            set { }
-        }
         #endregion
 
         /// <summary>
@@ -98,7 +63,31 @@
                 new LogItem() { Content = "AMCServer [Version 1.0.0]", ShowTime = false } ,
                 new LogItem() { Content = "(c) 2020 Stimpon",          ShowTime = false } ,
             };
+
+            #region Create commands
+
+            // Command for exetuting commands
+            ExecuteCommand = new RelayCommand(ExecuteCommandEvent);
+
+            #endregion
+
         }
+
+        /// <summary>
+        /// Actions for the commands
+        /// </summary>
+        #region Command actions
+
+        /// <summary>
+        /// Bound to the ExecuteCommand
+        /// </summary>
+        private void ExecuteCommandEvent(object parameter)
+        {
+            // We now that the parameter will be a string
+            string Command = parameter as string;
+        }
+
+        #endregion
 
         #endregion
 

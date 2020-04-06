@@ -4,5 +4,8 @@
 
     <system:String x:Key="ServerIcon">&#xf233;</system:String>
     <system:String x:Key="TerminalIcon">&#xf120;</system:String>
-    
+
+    <system:String x:Key="WindowClose">&#xf410;</system:String>
+    <system:String x:Key="WindowMimnize">&#xf2d1;</system:String>
+
 </ResourceDictionary>

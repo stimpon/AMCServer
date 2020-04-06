@@ -24,16 +24,17 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <Border BorderThickness="0" Background="{StaticResource SolidColor_Gray}">
+            <Grid Background="{StaticResource SolidColor_Gray}">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock FontFamily="{StaticResource FontAwesome}" Text="{StaticResource ServerIcon}" VerticalAlignment="Center" HorizontalAlignment="Left" FontSize="20" Foreground="Silver" Margin="5,0,0,0"/>
                     <TextBlock VerticalAlignment="Center" 
                                HorizontalAlignment="Left" 
                                FontFamily="Curier" Text="AMCServer" Foreground="{StaticResource SolidColor_Blue}" FontSize="15" FontWeight="Bold" Margin="10,0,0,0"/>
                 </StackPanel>
-            </Border>
 
-            <Frame Grid.Row="1" Content="{Binding CurrentPage, Converter={local:TypeToPageConverter}}"/>
+            </Grid>
+
+            <Frame Grid.Row="1" Content="{Binding ApplicationViewModel.CurrentPage, Source={x:Static local:Locator.Instance}, Converter={local:TypeToPageConverter}}"/>
 
         </Grid>
     </Border>
