@@ -1,13 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Text;
-
-namespace AMCServer2
+﻿namespace AMCClient2
 {
     /// <summary>
-    /// The Application ViewModel
+    /// Required namespaces
     /// </summary>
+    #region Namespaces
+    using System;
+    using System.Collections.Generic;
+    using System.ComponentModel;
+    using System.Text;
+    #endregion
+
     public class ApplicationViewModel : BaseViewModel
     {
         #region Public properties
@@ -15,10 +17,9 @@ namespace AMCServer2
         /// <summary>
         /// Tells the View wich page to show
         /// </summary>
-        public MainViews CurrentPage         { get; set; }
+        public MainViews CurrentPage         { get; private set; }
 
         #endregion
-
 
         /// <summary>
         /// Default constructor
@@ -28,6 +29,5 @@ namespace AMCServer2
             // Set the CurrentPage to the ServerInterface
             CurrentPage = MainViews.ServerInterface;
         }
-
     }
 }

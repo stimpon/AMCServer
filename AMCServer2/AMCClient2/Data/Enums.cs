@@ -1,7 +1,7 @@
 ﻿/// <summary>
 /// Contains all of the public Enums
 /// </summary>
-namespace AMCServer2
+namespace AMCClient2
 {
     /// <summary>
     /// Enum for the information event args
@@ -32,27 +32,27 @@ namespace AMCServer2
     /// <summary>
     /// All of the different server states
     /// </summary>
-    public enum ServerStates
+    public enum ClientStates
     {
         /// <summary>
-        /// The server is not running
+        /// When the client is connected to the server
         /// </summary>
-        Offline,
+        Connected,
 
         /// <summary>
-        /// When the server is starting up
+        /// While the client is connecting to the server
         /// </summary>
-        StartingUp,
+        Connecting,
 
         /// <summary>
-        /// When the server is starting up
+        /// While the client disconnects from the server
         /// </summary>
-        ShuttingDown,
+        Disconnecting,
 
         /// <summary>
-        /// The server is running
+        /// When the client is disconnected from the server
         /// </summary>
-        Online
+        Disconnected
     }
 
     /// <summary>
@@ -63,19 +63,4 @@ namespace AMCServer2
         ServerInterface
     }
 
-    /// <summary>
-    /// All services that the server provides for the clients
-    /// </summary>
-    public enum Services
-    {
-        /// <summary>
-        /// serverclient
-        /// </summary>
-        AMCClient,
-
-        /// <summary>
-        /// Cryptochat service
-        /// </summary>
-        Transparent
-    }
 }

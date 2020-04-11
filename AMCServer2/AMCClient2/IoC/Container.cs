@@ -1,6 +1,7 @@
 ﻿using Ninject;
+using System.Net;
 
-namespace AMCServer2.IoC
+namespace AMCClient2.IoC
 {
     /// <summary>
     /// This is the IoC Container
@@ -20,7 +21,7 @@ namespace AMCServer2.IoC
 
             // ViewModel binding
             Kernel.Bind<ApplicationViewModel>().ToConstant(new ApplicationViewModel());
-            Kernel.Bind<ServerViewModel>().ToConstant(new ServerViewModel(400, 3));
+            Kernel.Bind<ClientViewModel>().ToConstant(new ClientViewModel(400, IPAddress.Parse("127.0.0.1")));
         }
 
         /// <summary>

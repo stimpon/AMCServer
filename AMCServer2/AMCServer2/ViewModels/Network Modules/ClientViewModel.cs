@@ -35,6 +35,11 @@
         public Socket ClientConnection { get; internal set; }
 
         /// <summary>
+        /// Reads the remote ip from the socket
+        /// </summary>
+        public string ClientConnectionString => ClientConnection.RemoteEndPoint.ToString();
+
+        /// <summary>
         /// This tells the server what this client can
         /// and cannot do
         /// 

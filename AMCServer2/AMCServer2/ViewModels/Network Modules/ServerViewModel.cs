@@ -11,6 +11,7 @@
     using System.Text;
     using System.Security.Cryptography;
     using System.Linq;
+    using System.Collections.ObjectModel;
     #endregion
 
     /// <summary>
@@ -26,12 +27,12 @@
         /// <summary>
         /// Listening port for the server
         /// </summary>
-        public int ListeningPort { get; private set; }
+        public int ListeningPort   { get; private set; }
 
         /// <summary>
         /// Server backlog
         /// </summary>
-        public int ServerBacklog { get; private set; }
+        public int ServerBacklog   { get; private set; }
 
         /// <summary>
         /// Server IPEndPoint
@@ -41,12 +42,12 @@
         /// <summary>
         /// The server socket
         /// </summary>
-        public Socket ServerSocket                     { get; private set; }
+        public Socket ServerSocket { get; private set; }
 
         /// <summary>
         /// All of the active connections
         /// </summary>
-        public List<ClientViewModel> ActiveConnections { get; private set; }
+        public ThreadSafeObservableCollection<ClientViewModel> ActiveConnections { get; private set; }
 
         /// <summary>
         /// Current server staus
@@ -58,12 +59,6 @@
         /// </summary>
         public int ServerBufferSize     { get; private set; }
 
-        /// <summary>
-        /// If true, then any sockets that does not provide
-        /// handshake after connecting will be dropped
-        /// </summary>
-        public bool 
-            RequireHandShakeMessage     { get; set; }
         /// <summary>
         /// The handshake message that needs to be provided
         /// from the clien when connecting
@@ -81,6 +76,15 @@
         /// The server buffer
         /// </summary>
         private byte[] ServerBuffer;
+
+        #endregion
+
+        #region Events
+
+        /// <summary>
+        /// New information event
+        /// </summary>
+        public EventHandler<InformationEventArgs>  ServerInformation;
 
         #endregion
 
@@ -115,12 +119,11 @@
 
             EndPoint = new IPEndPoint(IPAddress.Any, ListeningPort);
 
-            // If server should require handshake
-            RequireHandShakeMessage = false;
+            // Set the handshake string
             HandShakeString         = String.Empty;
 
             // Create empty connections list
-            ActiveConnections       = new List<ClientViewModel>();
+            ActiveConnections       = new ThreadSafeObservableCollection<ClientViewModel>();
             
             // Set serverstate to offline
             ServerState = ServerStates.Offline;
@@ -132,8 +135,11 @@
         /// <returns>True if successful</returns>
         public void StartServer()
         {
-            // Quit if socket has not been set
-            if (ServerState == ServerStates.Online) return;
+            if (ServerState == ServerStates.Online)
+            {
+                OnServerInformation("Server is already running", InformationTypes.Warning);
+                return;
+            } 
 
             // Set server state
             ServerState = ServerStates.StartingUp;
@@ -150,6 +156,9 @@
 
             // Startup was successful >>
             ServerState = ServerStates.Online;
+
+            // Call the event
+            OnServerInformation("Server is now running", InformationTypes.ActionSuccessful);
         }
 
         /// <summary>
@@ -157,6 +166,13 @@
         /// </summary>
         public void Shutdown()
         {
+            // Return if the server is not running
+            if(ServerState == ServerStates.Offline)
+            {
+                OnServerInformation("The server is not running", InformationTypes.Warning);
+                return;
+            }
+
             // Closer all actice connections
             foreach (var Client in ActiveConnections)
                 Client.ClientConnection.Close();
@@ -167,8 +183,21 @@
 
             // Startup complete >>
             ServerState = ServerStates.Offline;
+
+            // Call the event
+            OnServerInformation("Server has been shutdown", InformationTypes.ActionSuccessful);
         }
 
+        /// <summary>
+        /// Event callback
+        /// </summary>
+        /// <param name="Data"></param>
+        protected virtual void OnServerInformation(string Information, InformationTypes type)
+        {
+            // Check so the event is not null
+            if (ServerInformation != null)
+                ServerInformation(this, new InformationEventArgs() { Information = Information , MessageType = type });
+        }
 
         #endregion
 
@@ -181,65 +210,70 @@
         /// <param name="ar"></param>
         private void ServerAcceptCallback(IAsyncResult ar)
         {
-            // This is the connection that has been made
-            Socket s = ServerSocket.EndAccept(ar);
-
             try
             {
-                // Wait for handshake if set to do so
-                if (RequireHandShakeMessage) 
+                // This is the connection that has been made
+                Socket s = ServerSocket.EndAccept(ar);
+
+                try
                 {
-                    // Set handshake timeout
-                    s.ReceiveTimeout = 1000;
-                    s.Receive(new byte[HandShakeString.Length]);              
+                    // Create the Client obejct
+                    var ClientConnection = new ClientViewModel()
+                    {
+                        ClientConnection = s,
+                        Verified = true,
+                        AutorisationLevel = 0
+                    };
+
+                    // Create placeholder for the clients public key
+                    ClientConnection.Encryptor = new RSACryptoServiceProvider(2048);
+                    // Create a unique RSA keypair for this client
+                    ClientConnection.Decryptor = new RSACryptoServiceProvider(2048);
+
+                    // Send server's public key >>
+                    s.Send(ClientConnection.Decryptor.ExportRSAPublicKey());
+
+                    // Set key exchange timeout
+                    s.ReceiveTimeout = 5000;
+
+                    // Receive Clients's public key
+                    { // >>
+                        byte[] PK = new byte[500];
+                        int len = s.Receive(PK);
+
+                        // Resize to the correct size before importing
+                        Array.Resize(ref PK, len);
+                        ClientConnection.Encryptor.ImportRSAPublicKey(PK, out int l);
+                    } // <<
+
+                    // Begin listening to the client
+                    s.BeginReceive(ServerBuffer, 0, ServerBuffer.Length,
+                                                                    SocketFlags.None,
+                                                                    new AsyncCallback(ServerReceiveCallback),
+                                                                    ClientConnection.ClientConnection);
+
+                    // Add the new connection to the list of connections
+                    ActiveConnections.Add(ClientConnection);
+
+                    // Call the event
+                    OnServerInformation($"New connection from: { s.RemoteEndPoint.ToString()}", InformationTypes.Information);
                 }
-
-                // Create the Client obejct
-                var ClientConnection = new ClientViewModel()
+                catch (Exception ex)
                 {
-                    ClientConnection = s,
-                    AutorisationLevel = 0
-                };
-
-                // Create a unique RSA keypair for this client
-                ClientConnection.Encryptor = new RSACryptoServiceProvider(2048);
-
-                // Send server's public key >>
-                s.Send(ClientConnection.Encryptor.ExportRSAPublicKey());
-
-                // Set key exchange timeout
-                s.ReceiveTimeout = 5000;
-
-                // Receive Clients's public key
-                { // >>
-                    byte[] PK = new byte[500];
-                    int len = s.Receive(PK);
-
-                    // Resize to the correct size before importing
-                    Array.Resize(ref PK, len);
-                    ClientConnection.Decryptor.ImportRSAPublicKey(PK, out int l);
-                } // <<
-
-                // Begin listening to the client
-                s.BeginReceive(ServerBuffer, 0, ServerBuffer.Length,
-                                                                SocketFlags.None,
-                                                                new AsyncCallback(ServerReceiveCallback),
-                                                                ClientConnection.ClientConnection);
-
-                // Add the new connection to the list of connections
-                ActiveConnections.Add(ClientConnection);
-            }
-            catch
-            {
-                // Close the socket if there were any problems
-                s.Close();
-            }
-            finally
-            {
-                // Begin accepting more connections
-                ServerSocket.BeginAccept(new AsyncCallback(ServerAcceptCallback), null);
+                    // Call the event
+                    OnServerInformation($"{s.RemoteEndPoint} failed to connect, error message: {ex.Message}", InformationTypes.Error);
+                    // Close the socket if there were any problems
+                    s.Close();
+                }
+                finally
+                {
+                    // Begin accepting more connections
+                    ServerSocket.BeginAccept(new AsyncCallback(ServerAcceptCallback), null);
+                }
             }
 
+            // Should only come here if the server is being shutdown
+            catch { }
         }
 
         /// <summary>
@@ -248,14 +282,14 @@
         /// <param name="ar"></param>
         private void ServerReceiveCallback(IAsyncResult ar)
         {
+            // Get the socket
+            Socket Client = (Socket)ar.AsyncState;
+            // Get the conenction object from the list of active connections
+            var ClientVM = ActiveConnections.First(c => c.ClientConnection.Equals(Client));
+
             // This can fail if client disconnects
             try
             {
-                // Get the socket
-                Socket Client = (Socket)ar.AsyncState;
-
-                // Get the conenction object from the list of active connections
-                var ClientVM = ActiveConnections.First(c => c.ClientConnection.Equals(Client));
 
                 // Check the lengt of the sent data
                 int Rec = Client.EndReceive(ar);
@@ -281,7 +315,16 @@
                                                      Client);
             }
             // Remove the connection
-            catch { }
+            catch 
+            {
+                // Call the event
+                OnServerInformation($"{Client.RemoteEndPoint.ToString()} disconnected", InformationTypes.Information);
+                
+                // Close the connection
+                Client.Close();
+                // Remove client from the list of active connections
+                ActiveConnections.Remove(ClientVM);
+            }
         }
 
         /// <summary>

@@ -1,0 +1,4 @@
+﻿:start  - Start the server
+:stop   - Stop the server
+:cls    - Clear the terminal
+:help   - Provides help information

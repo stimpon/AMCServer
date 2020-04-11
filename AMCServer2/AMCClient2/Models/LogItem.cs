@@ -1,4 +1,4 @@
-﻿namespace AMCServer2
+﻿namespace AMCClient2
 {
     /// <summary>
     /// Required namespaces

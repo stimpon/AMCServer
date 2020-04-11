@@ -22,13 +22,18 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Program Files\Config Files\" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="Program Files\Commands.txt">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    <Page Update="Views\Styles\Colors.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Styles\ContainerStyles.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Styles\Fonts.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Styles\Strings.xaml">
+      <SubType>Designer</SubType>
+    </Page>
   </ItemGroup>
 
 </Project>

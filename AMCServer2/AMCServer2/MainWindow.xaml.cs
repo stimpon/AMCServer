@@ -10,9 +10,6 @@ namespace AMCServer2
         public MainWindow()
         {
             InitializeComponent();
-
-            // Set the Datacontext of this View
-            this.DataContext = new MainWindowViewModel();
         }
     }
 }

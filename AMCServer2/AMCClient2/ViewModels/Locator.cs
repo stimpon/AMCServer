@@ -1,4 +1,4 @@
-﻿namespace AMCServer2
+﻿namespace AMCClient2
 {
     /// <summary>
     /// Class for locating ViewModels in the kernel
@@ -24,9 +24,9 @@
         /// <summary>
         /// Gets the ServerViewModel from the Kernel
         /// </summary>
-        public static ServerViewModel ServerViewModel 
+        public static ClientViewModel ServerViewModel 
             =>
-            IoC.Container.Get<ServerViewModel>();
+            IoC.Container.Get<ClientViewModel>();
 
         #endregion
 
