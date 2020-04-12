@@ -1,4 +1,6 @@
-﻿:start  - Start the server
-:stop   - Stop the server
-:cls    - Clear the terminal
-:help   - Provides help information
+﻿:start      - Start the server
+:stop       - Stop the server
+:bind [ID]  - Bind the server to a client
+:getdrives  - Get all drives from the bound client
+:cls        - Clear the terminal
+:help       - Provides help information

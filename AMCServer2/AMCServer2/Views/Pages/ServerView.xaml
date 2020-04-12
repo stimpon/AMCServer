@@ -49,7 +49,7 @@
                                                 <DockPanel Margin="10,5,15,5">
                                                     <TextBlock FontFamily="{StaticResource FontAwesome}" 
                                                                Text="{Binding Converter={local:ExplorerItemToIconConverter}}" 
-                                                               FontSize="30" Foreground="{StaticResource SolidColor_Blue}" Width="30"/>
+                                                               FontSize="25" Foreground="{StaticResource SolidColor_Blue}" Width="30"/>
 
                                                     <TextBlock Text="{Binding Name}" VerticalAlignment="Center" 
                                                                HorizontalAlignment="Left" FontFamily="Consolas"

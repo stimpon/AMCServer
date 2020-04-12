@@ -105,7 +105,7 @@
             // Check if input command
 
             // :bind + [ID] >> Bind the server to a client
-            if(CommandString.ToLower().StartsWith("bind "))
+            if(CommandString.ToLower().StartsWith(":bind "))
             {
                 // Try to parse the argument into an int
                 if (int.TryParse(CommandString.Substring(5), out int ID))
@@ -132,6 +132,13 @@
                     /* :stop >> Stop the server
                      */
                     case ":stop": IoC.Container.Get<ServerViewModel>().Shutdown(); break;
+
+                    case ":getdrives":
+                        if (IoC.Container.Get<ServerViewModel>().Send("[DRIVES]"))
+                        {
+                            ExplorerItems = new ThreadSafeObservableCollection<FileExplorerObject>();
+                        }
+                        break;
 
                     /* :help >> Provide help information
                      */
@@ -183,6 +190,18 @@
                     EventTime = e.InformationTimeStamp,
                     ShowTime = true,
                     Type = InformationTypes.Information
+                });
+            }
+            // Client sent a HDD object
+            if (e.Data.StartsWith("[DRIVE]"))
+            {
+                // Split the received data
+                string[] data = e.Data.Substring(7).Split('|');
+                // Create the object and add it to the list
+                ExplorerItems.Add(new FileExplorerObject()
+                {
+                    Name = $"{data[1]} {data[0]}",
+                    Type = ExplorerItemTypes.HDD
                 });
             }
         }

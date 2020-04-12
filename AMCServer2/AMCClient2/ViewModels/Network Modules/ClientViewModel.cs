@@ -52,14 +52,14 @@
         /// </summary>
         public EventHandler<InformationEventArgs> ClientInformation;
 
+        /// <summary>
+        /// Fires when data was received from a client
+        /// </summary>
+        public EventHandler<string> DataReceived;
+
         #endregion
 
         #region Private Members
-
-        /// <summary>
-        /// The server buffer
-        /// </summary>
-        private byte[] GlobalBuffer;
 
         /// <summary>
         /// This programs private key
@@ -70,6 +70,11 @@
         /// Servers public key
         /// </summary>
         private RSACryptoServiceProvider Decryptor;
+
+        /// <summary>
+        /// The server buffer
+        /// </summary>
+        private byte[] GlobalBuffer;
 
         #endregion
 
@@ -101,7 +106,7 @@
         public void Initialize()
         {
             // Setup server buffer
-            GlobalBufferSize = 1024;
+            GlobalBufferSize = 10240;
             GlobalBuffer = new byte[GlobalBufferSize];
 
             Decryptor = new RSACryptoServiceProvider(2048);
@@ -152,7 +157,7 @@
         }
 
         /// <summary>
-        /// Event callback
+        /// Fires when the client has new information
         /// </summary>
         /// <param name="Data"></param>
         protected virtual void OnClientInformation(string Information, InformationTypes type)
@@ -160,6 +165,16 @@
             // Check so the event is not null
             if (ClientInformation != null)
                 ClientInformation(this, new InformationEventArgs() { Information = Information, MessageType = type });
+        }
+
+        /// <summary>
+        /// Fires when data was received from the server
+        /// </summary>
+        /// <param name="Data"></param>
+        protected virtual void OnDataReceived(string Data)
+        {
+            // Check if Event is null
+            DataReceived?.Invoke(this, Data);
         }
 
         #endregion
@@ -197,6 +212,11 @@
 
                 // Change the state
                 ClientState = ClientStates.Connected;
+
+                ServerConnection.BeginReceive(GlobalBuffer, 0, GlobalBuffer.Length,
+                                              SocketFlags.None, 
+                                              new AsyncCallback(ReceiveCallback),
+                                              ServerConnection);
             }
             catch (Exception ex)
             {
@@ -207,6 +227,69 @@
                 ClientState = ClientStates.Disconnected;
             }
 
+        }
+
+        /// <summary>
+        /// When the client receives data from the server
+        /// </summary>
+        /// <param name="ar"></param>
+        private void ReceiveCallback(IAsyncResult ar)
+        {
+            // Het the socket from the parameter
+            Socket s = (Socket)ar.AsyncState;
+
+            // This can fail if the server closes
+            try
+            {
+                // Get the lenght of the received bytes
+                int rec = s.EndReceive(ar);
+
+                // Check if empty packet was sent
+                if(rec > 0)
+                {
+                    // Create new buffer and resize it to the correct size
+                    byte[] ReceivedBytes = GlobalBuffer;
+                    Array.Resize(ref ReceivedBytes, rec);
+
+                    try
+                    {
+                        // Encrypt and get the data
+                        string Message = Encoding.Default.GetString(
+                                         Decryptor.Decrypt(
+                                         ReceivedBytes, true)
+                                         );
+
+                        // Call the event
+                        OnDataReceived(Message);
+                    }
+                    catch
+                    {
+                        OnClientInformation($"The server sent data that was not possible to decrypt.\n Data: " +
+                                            $"{Encoding.Default.GetString(ReceivedBytes)}",
+                                            InformationTypes.Warning);
+                    }
+
+                }
+
+                // Listen for more data from the server
+                ServerConnection.BeginReceive(GlobalBuffer, 0, GlobalBuffer.Length,
+                              SocketFlags.None,
+                              new AsyncCallback(ReceiveCallback),
+                              s);
+            }
+
+            // Close the connection and change the client connection state
+            catch
+            {
+                // Close the socket
+                s.Close();
+
+                // Call the infromation event
+                OnClientInformation("A connection error occured and you where disconnected from the server", InformationTypes.Error);
+
+                // Set the connection state to disconnected
+                ClientState = ClientStates.Disconnected;
+            }
         }
 
         #endregion

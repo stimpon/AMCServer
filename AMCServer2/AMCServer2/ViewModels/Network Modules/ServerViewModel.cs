@@ -57,7 +57,7 @@
         /// <summary>
         /// Servers packet buffersize
         /// </summary>
-        public int ServerBufferSize     { get; private set; }
+        public int BufferSize           { get; private set; }
 
         /// <summary>
         /// The handshake message that needs to be provided
@@ -69,18 +69,6 @@
         /// The client currently bound to the server
         /// </summary>
         public int BoundClient          { get; set; }
-
-        #endregion
-
-        /// <summary>
-        /// All of the private members
-        /// </summary>
-        #region Private Members
-
-        /// <summary>
-        /// The server buffer
-        /// </summary>
-        private byte[] ServerBuffer;
 
         #endregion
 
@@ -124,8 +112,7 @@
         public void Initialize()
         {
             // Setup server buffer
-            ServerBufferSize = 1024;
-            ServerBuffer     = new byte[ServerBufferSize];
+            BufferSize = 10240;
 
             EndPoint = new IPEndPoint(IPAddress.Any, ListeningPort);
 
@@ -188,6 +175,7 @@
             // Closer all actice connections
             foreach (var Client in ActiveConnections)
                 Client.ClientConnection.Close();
+
             ActiveConnections.Clear();
 
             // Close the socket
@@ -226,17 +214,24 @@
         /// Send data to a bound client
         /// </summary>
         /// <param name="Message"></param>
-        public void Send(string Message)
+        public bool Send(string Message)
         {
             // Check if server is bound to a client
             if (BoundClient < 0)
             {
                 OnServerInformation("Server is not bound to a client", InformationTypes.ActionFailed, false);
-                return;
+                return false; ;
             }
-
-
-
+            // Get the bound client
+            var Client = ActiveConnections.First(c => c.ID.Equals(BoundClient));
+            // Encrypt and get the bytes from the string
+            var Bytes = Client.Encryptor.Encrypt(Encoding.Default.GetBytes(Message), true);
+            // Send the message
+            Client.ClientConnection.BeginSend(Bytes, 0, Bytes.Length, 
+                                              SocketFlags.None, 
+                                              new AsyncCallback(ServerSendCallback), 
+                                              Client.ClientConnection);
+            return true;
         }
 
         #region Events
@@ -294,7 +289,8 @@
                     {
                         ClientConnection = s,
                         Verified = true,
-                        AutorisationLevel = 0
+                        AutorisationLevel = 0,
+                        DataBuffer = new byte[BufferSize]
                     };
 
                     // Create placeholder for the clients public key
@@ -319,10 +315,10 @@
                     } // <<
 
                     // Begin listening to the client
-                    s.BeginReceive(ServerBuffer, 0, ServerBuffer.Length,
-                                                                    SocketFlags.None,
-                                                                    new AsyncCallback(ServerReceiveCallback),
-                                                                    ClientConnection.ClientConnection);
+                    s.BeginReceive(ClientConnection.DataBuffer, 0, BufferSize,
+                                                    SocketFlags.None,
+                                                    new AsyncCallback(ServerReceiveCallback),
+                                                    ClientConnection.ClientConnection);
 
                     // Add the new connection to the list of connections
                     ActiveConnections.Add(ClientConnection);
@@ -364,45 +360,61 @@
             // Get the socket
             Socket Client = (Socket)ar.AsyncState;
             // Get the conenction object from the list of active connections
-            var ClientVM = ActiveConnections.First(c => c.ClientConnection.Equals(Client));
+            var ClientVM = ActiveConnections.FirstOrDefault(c => c.ClientConnection.Equals(Client));
+            // Server is shutting down
+            if (ClientVM == null) return;
 
             // This can fail if client disconnects
             try
             {
-
                 // Check the lengt of the sent data
                 int Rec = Client.EndReceive(ar);
 
-                // Check if an empty packet was received
-                if (Rec > 0)
-                {  
+                // Check if empty byte packet was sent
+                if(Rec > 0)
+                {
                     // Create new buffer and resize it to the correct size
-                    byte[] ReceivedBytes = ServerBuffer;
+                    byte[] ReceivedBytes = ClientVM.DataBuffer;
                     Array.Resize(ref ReceivedBytes, Rec);
 
-                    // Decrypt and convert the received bytes to a string
-                    string Message = Encoding.Default.GetString(
-                                     ClientVM.Decryptor.Decrypt(
-                                         ReceivedBytes, true) 
-                                     );
+                    // Loop through all of the packets
+                    for(int PacketStart = 0; PacketStart < Rec; PacketStart += 256)
+                    {
+                        // Read the current bytepacket
+                        byte[] _packet = ReceivedBytes[new Range(PacketStart, PacketStart + 256)];
 
-                    // Call the event
-                    OnDataReceived(ClientVM, Message);
+                        // Decrypt and convert the received bytes to a string
+                        try
+                        {
+                            // Encrypt the bytes and retrieve the string
+                            string Message = Encoding.Default.GetString(
+                                             ClientVM.Decryptor.Decrypt(
+                                             _packet, true)
+                                             );
+                            // Call the event
+                            OnDataReceived(ClientVM, Message);
+                        }
+                        catch
+                        {
+                            OnServerInformation($"{Client.RemoteEndPoint.ToString()} sent data that was not possible to decrypt with the server's public key.\n Data: " +
+                                                $"{Encoding.Default.GetString(ReceivedBytes)}",
+                                                InformationTypes.Warning);
+                        }
 
+                    }
                 }
 
                 // Begin receiving again
-                Client.BeginReceive(ServerBuffer, 0, ServerBuffer.Length,
-                                                     SocketFlags.None,
-                                                     new AsyncCallback(ServerReceiveCallback),
-                                                     Client);
+                Client.BeginReceive(ClientVM.DataBuffer, 0, BufferSize,
+                                                            SocketFlags.None,
+                                                            new AsyncCallback(ServerReceiveCallback),
+                                                            Client);
             }
             // Remove the connection
             catch 
             {
                 // Call the event
-                OnServerInformation($"{Client.RemoteEndPoint.ToString()} disconnected", InformationTypes.Information);
-                
+                OnServerInformation($"{Client.RemoteEndPoint.ToString()} disconnected", InformationTypes.Information);               
                 // Close the connection
                 Client.Close();
                 // Remove client from the list of active connections

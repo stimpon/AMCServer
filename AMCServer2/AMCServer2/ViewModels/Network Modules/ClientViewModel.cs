@@ -39,6 +39,8 @@
         /// </summary>
         public string ClientConnectionString => ClientConnection.RemoteEndPoint.ToString();
 
+        public byte[] DataBuffer { get; set; }
+
         /// <summary>
         /// This tells the server what this client can
         /// and cannot do

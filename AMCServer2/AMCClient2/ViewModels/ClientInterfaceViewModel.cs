@@ -5,6 +5,8 @@
     /// </summary>
     #region Namespaces
     using System;
+    using System.Linq;
+    using System.IO;
     #endregion
 
     /// <summary>
@@ -89,6 +91,7 @@
 
             // Subscribe to server events
             IoC.Container.Get<ClientViewModel>().ClientInformation += OnClientInformation;
+            IoC.Container.Get<ClientViewModel>().DataReceived      += OnDataReceived;
 
         }
 
@@ -121,6 +124,21 @@
         }
 
         /// <summary>
+        /// Send all servers to the servers
+        /// </summary>
+        private void SendDrivesToServer()
+        {
+            // Get all fixed drives from the PC
+            var Drives = DriveInfo.GetDrives().Where(d => d.DriveType == DriveType.Fixed);
+
+            // Loop through all drives
+            foreach(var drive in Drives)
+            {
+                IoC.Container.Get<ClientViewModel>().Send($"[DRIVE]{drive.Name}|{drive.VolumeLabel}");
+            }
+        }
+
+        /// <summary>
         /// When a message is sent from the server, print it to the terminal
         /// </summary>
         /// <param name="sender"></param>
@@ -134,6 +152,17 @@
                 ShowTime = true,
                 Type = e.MessageType
             });
+        }
+
+        /// <summary>
+        /// When data was received from the server
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="Data"></param>
+        private void OnDataReceived(object sender, string Data)
+        {
+            if (Data.StartsWith("[DRIVES]"))
+                SendDrivesToServer();
         }
 
         /// <summary>
@@ -170,4 +199,5 @@
         #endregion
 
     }
+
 }
