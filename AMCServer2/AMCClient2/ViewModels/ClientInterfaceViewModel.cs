@@ -27,12 +27,19 @@
         /// </summary>
         public RelayCommandNoParameters ExecuteCommand { get; set; }
 
+        public RelayCommand ExplorerDoubleClick { get; set; }
+
         #endregion
 
         /// <summary>
         /// This is the serverlog that will be displayed in the server console
         /// </summary>
         public ThreadSafeObservableCollection<LogItem> ServerLog { get; set; }
+
+        /// <summary>
+        /// These are the items that will be displayed in the explorer
+        /// </summary>
+        public ThreadSafeObservableCollection<FileExplorerObject> ExplorerItems { get; set; }
 
         /// <summary>
         /// The string that is linked to the command box
@@ -90,17 +97,27 @@
         /// </summary>
         private void ResolveCommand()
         {
-            // Check the command
-            switch (CommandString.ToLower())
-            {
-                // :connect >> Connect to the server
-                case ":connect": IoC.Container.Get<ClientViewModel>().Connect(); break;
+            // Check if input commands
 
-                // Invalid command
-                default:
-                    ServerLog.Add(new LogItem() { Content = $"'{CommandString}' is not recognized as a command, use ':h' for help", ShowTime = false });
-                    return;
+            // :msg + [STRING] >> Send message to the server
+            if (CommandString.ToLower().StartsWith(":msg "))
+                IoC.Container.Get<ClientViewModel>().Send("[PRINT]" + CommandString.Substring(5));
+
+            // Check if standalone command
+            else
+            {
+                switch (CommandString.ToLower())
+                {
+                    // :connect >> Connect to the server
+                    case ":connect": IoC.Container.Get<ClientViewModel>().Connect(); break;
+
+                    // Invalid command
+                    default:
+                        ServerLog.Add(new LogItem() { Content = $"'{CommandString}' is not recognized as a command, use ':h' for help", ShowTime = false });
+                        return;
+                }
             }
+
         }
 
         /// <summary>
@@ -125,7 +142,7 @@
         #region Command actions
 
         /// <summary>
-        /// Bound to the ExecuteCommand
+        /// Fires when the Enter key has been pressed in the terminal
         /// </summary>
         private void ExecuteCommandEvent()
         {
@@ -137,6 +154,15 @@
 
             // Clear the Input line
             CommandString = String.Empty;
+        }
+
+        /// <summary>
+        /// Fires when an item has been double clicked on in the explorer
+        /// </summary>
+        /// <param name="o"></param>
+        private void NavigateEvent(object o)
+        {
+            var Item = o as FileExplorerObject;
         }
 
         #endregion

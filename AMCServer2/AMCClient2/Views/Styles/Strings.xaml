@@ -8,4 +8,14 @@
     <system:String x:Key="WindowClose">&#xf410;</system:String>
     <system:String x:Key="WindowMimnize">&#xf2d1;</system:String>
 
+    <!--#region Fontawesome DirectoryItem Icons-->
+    <system:String x:Key="File">&#xf15b;</system:String>
+    <system:String x:Key="FileText">&#xf15c;</system:String>
+    <system:String x:Key="FileArchive">&#xf1c6;</system:String>
+    <system:String x:Key="FileVideo">&#xf1c8;</system:String>
+    <system:String x:Key="FileAudio">&#xf1c7;</system:String>
+    <system:String x:Key="Folder">&#xf07b;</system:String>
+    <system:String x:Key="HDD">&#xf0a0;</system:String>
+    <!--#endregion-->
+
 </ResourceDictionary>

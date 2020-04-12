@@ -36,6 +36,9 @@
                 // If it is an error message, use red
                 case InformationTypes.Error:            return new SolidColorBrush(Colors.Red);
 
+                // If it is an action failed
+                case InformationTypes.ActionFailed:     return new SolidColorBrush(Colors.Red);
+
                 // If an action was successful, use gree,
                 case InformationTypes.ActionSuccessful: return new SolidColorBrush(Colors.ForestGreen);
 

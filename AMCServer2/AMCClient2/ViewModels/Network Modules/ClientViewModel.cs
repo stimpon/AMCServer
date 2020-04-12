@@ -8,6 +8,7 @@
     using System.Net;
     using System.Net.Sockets;
     using System.Security.Cryptography;
+    using System.Text;
     #endregion
 
     /// <summary>
@@ -141,6 +142,16 @@
         }
 
         /// <summary>
+        /// Send data to the server
+        /// </summary>
+        /// <param name="Message"></param>
+        public void Send(string Message)
+        {
+            // Encrypt the data and send it to the server
+            ServerConnection.Send(Encryptor.Encrypt(Encoding.Default.GetBytes(Message), true));
+        }
+
+        /// <summary>
         /// Event callback
         /// </summary>
         /// <param name="Data"></param>
@@ -166,6 +177,8 @@
             {
                 // End connect
                 ServerConnection.EndConnect(ar);
+
+                ServerConnection.Send(Encoding.Default.GetBytes("[VF]"));
 
                 // Receive Server's public key
                 { // >>

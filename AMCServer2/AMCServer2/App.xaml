@@ -1,7 +1,7 @@
 ﻿<Application x:Class="AMCServer2.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:AMCServer2">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    
     <Application.Resources>
         
         <!-- Merge all of the dictionaries -->
@@ -9,10 +9,10 @@
             <ResourceDictionary.MergedDictionaries>
 
 
-                <ResourceDictionary Source="pack:\\application:,,,/Views/Styles/Strings.xaml"  />
-                <ResourceDictionary Source="pack:\\application:,,,/Views/Styles/Fonts.xaml"  />
-                <ResourceDictionary Source="pack:\\application:,,,/Views/Styles/Colors.xaml" />
-                <ResourceDictionary Source="pack:\\application:,,,/Views/Styles/ContainerStyles.xaml"  />
+                <ResourceDictionary Source="pack:\\application:,,,/Views/Styles/Fonts.xaml"/>
+                <ResourceDictionary Source="pack:\\application:,,,/Views/Styles/Strings.xaml"/>
+                <ResourceDictionary Source="pack:\\application:,,,/Views/Styles/Colors.xaml"/>
+                <ResourceDictionary Source="pack:\\application:,,,/Views/Styles/ContainerStyles.xaml"/>
                 
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>

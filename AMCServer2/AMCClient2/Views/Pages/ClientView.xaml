@@ -38,7 +38,67 @@
                 </Border>
 
                 <Border Grid.Row="2" Background="{StaticResource SolidColor_Gray}">
+                    <ListView Background="Transparent" ItemsSource="{Binding ExplorerItems}" HorizontalContentAlignment="Left"
+                              BorderThickness="0" SelectionMode="Single" x:Name="LvExplorer">
 
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="{x:Type ListViewItem}">
+
+                                <Setter Property="Background" Value="Transparent"/>
+
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate>
+
+                                            <Border Background="{TemplateBinding ListViewItem.Background}">
+                                                <DockPanel Margin="10,5,15,5">
+                                                    <TextBlock FontFamily="{StaticResource FontAwesome}" 
+                                                               Text="{Binding Converter={local:ExplorerItemToIconConverter}}" 
+                                                               FontSize="30" Foreground="{StaticResource SolidColor_Blue}" Width="30"/>
+
+                                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center" 
+                                                               HorizontalAlignment="Left" FontFamily="Consolas"
+                                                               Margin="15,0,0,0" FontSize="12"
+                                                               Foreground="White" Width="200"/>
+
+                                                    <TextBlock Text="{Binding Extension}" VerticalAlignment="Center" 
+                                                               HorizontalAlignment="Left" FontFamily="Consolas"
+                                                               Margin="10,0,0,0" FontSize="12"
+                                                               Foreground="White" Width="50"/>
+
+                                                    <TextBlock Text="{Binding Converter={local:BytesToFormatedSizeStringConverter}}" VerticalAlignment="Center" 
+                                                               HorizontalAlignment="Right" FontFamily="Consolas"
+                                                               Margin="10,0,20,0" FontSize="12"
+                                                               Foreground="White"/>
+                                                </DockPanel>
+
+                                                <Border.InputBindings>
+                                                    <MouseBinding Gesture="LeftDoubleClick"
+                                                                  Command="{Binding ElementName=LvExplorer,
+                                                                                    Path=DataContext.ExplorerDoubleClick}" 
+                                                                  CommandParameter="{Binding}"/>
+                                                </Border.InputBindings>
+
+                                            </Border>
+
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="Gray"/>
+                                    </Trigger>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Background" Value="DarkGray"/>
+                                    </Trigger>
+                                </Style.Triggers>
+
+                            </Style>
+
+                        </ListView.ItemContainerStyle>
+
+                    </ListView>
                 </Border>
 
             </Grid>

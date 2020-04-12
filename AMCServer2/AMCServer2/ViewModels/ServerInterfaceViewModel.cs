@@ -7,6 +7,7 @@
     using System;
     using System.IO;
     using System.Collections.ObjectModel;
+    using System.Windows;
     #endregion
 
     /// <summary>
@@ -29,12 +30,19 @@
         /// </summary>
         public RelayCommandNoParameters ExecuteCommand { get; set; }
 
+        public RelayCommand ExplorerDoubleClick { get; set; }
+
         #endregion
 
         /// <summary>
         /// This is the serverlog that will be displayed in the server console
         /// </summary>
         public ThreadSafeObservableCollection<LogItem> ServerLog { get; set; }
+
+        /// <summary>
+        /// These are the items that will be displayed in the explorer
+        /// </summary>
+        public ThreadSafeObservableCollection<FileExplorerObject> ExplorerItems { get; set; }
 
         /// <summary>
         /// The string that is linked to the command box
@@ -52,7 +60,7 @@
         /// </summary>
         public ServerInterfaceViewModel()
         {
-            if(ProgramState.IsRunning)
+            if (ProgramState.IsRunning)
                 // Call the Init method when a new instance of this VM is created
                 Init();
         }
@@ -78,11 +86,14 @@
 
             // Command for exetuting commands
             ExecuteCommand = new RelayCommandNoParameters(ExecuteCommandEvent);
+            // Navigate command
+            ExplorerDoubleClick = new RelayCommand(NavigateEvent, (o) => { return true; });
 
             #endregion
 
             // Subscribe to server events
             IoC.Container.Get<ServerViewModel>().ServerInformation += OnServerInformation;
+            IoC.Container.Get<ServerViewModel>().DataReceived += OnDataReceived;
 
         }
 
@@ -91,34 +102,52 @@
         /// </summary>
         private void ResolveCommand()
         {
-            // Check the command
-            switch (CommandString.ToLower())
+            // Check if input command
+
+            // :bind + [ID] >> Bind the server to a client
+            if(CommandString.ToLower().StartsWith("bind "))
             {
-                /* :cls >> Clear the console
-                 */
-                case ":cls": ServerLog.Clear(); break;
+                // Try to parse the argument into an int
+                if (int.TryParse(CommandString.Substring(5), out int ID))
+                    IoC.Container.Get<ServerViewModel>().Bind(ID);
+                else
+                    ServerLog.Add(new LogItem() { Content  = $"'{CommandString.Substring(5)}' is an invalid ID", 
+                                                  ShowTime = false, 
+                                                  Type     = InformationTypes.Error });
+            }
 
-                /* :start >> Start the server
-                 */
-                case ":start": IoC.Container.Get<ServerViewModel>().StartServer(); break;
+            // Check if standalone command
+            else
+            {
+                switch (CommandString.ToLower())
+                {
+                    /* :cls >> Clear the console
+                     */
+                    case ":cls": ServerLog.Clear(); break;
 
-                /* :stop >> Stop the server
-                 */
-                case ":stop": IoC.Container.Get<ServerViewModel>().Shutdown(); break;
+                    /* :start >> Start the server
+                     */
+                    case ":start": IoC.Container.Get<ServerViewModel>().StartServer(); break;
 
-                /* :help >> Provide help information
-                 */
-                case ":help": foreach (string ch in File.ReadAllLines(Environment.CurrentDirectory + "\\Program Files\\Commands.txt"))
-                                       ServerLog.Add(new LogItem() 
-                                       { 
-                                           Content  = ch, 
-                                           ShowTime = false 
-                                       });            break;
+                    /* :stop >> Stop the server
+                     */
+                    case ":stop": IoC.Container.Get<ServerViewModel>().Shutdown(); break;
 
-                // Invalid command
-                default:
-                    ServerLog.Add(new LogItem() { Content = $"'{CommandString}' is not recognized as a command, use ':h' for help", ShowTime = false });
-                    return;
+                    /* :help >> Provide help information
+                     */
+                    case ":help":
+                        foreach (string ch in File.ReadAllLines(Environment.CurrentDirectory + "\\Program Files\\Commands.txt"))
+                            ServerLog.Add(new LogItem()
+                            {
+                                Content = ch,
+                                ShowTime = false
+                            }); break;
+
+                    // Invalid command
+                    default:
+                        ServerLog.Add(new LogItem() { Content = $"'{CommandString}' is not recognized as a command, use ':h' for help", ShowTime = false });
+                        return;
+                }
             }
         }
 
@@ -131,11 +160,31 @@
         {
             ServerLog.Add(new LogItem()
             {
-                Content = e.Information,
-                EventTime = DateTime.Now.ToString(),
-                ShowTime = true,
-                Type = e.MessageType
-            });
+                Content   = e.Information,
+                ShowTime  = (e.InformationTimeStamp != null) ? true : false,
+                EventTime = e.InformationTimeStamp,
+                Type      = e.MessageType
+            }) ;
+        }
+
+        /// <summary>
+        /// When data is received from a client
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void OnDataReceived(object sender, ClientInformationEventArgs e)
+        {
+            // Check what data was sent and from wich client
+            if (e.Data.StartsWith("[PRINT]"))
+            {
+                ServerLog.Add(new LogItem()
+                {
+                    Content = $"{e.Client.ClientConnection.RemoteEndPoint.ToString()} said: {e.Data.Substring(7)}",
+                    EventTime = e.InformationTimeStamp,
+                    ShowTime = true,
+                    Type = InformationTypes.Information
+                });
+            }
         }
 
         /// <summary>
@@ -144,7 +193,7 @@
         #region Command actions
 
         /// <summary>
-        /// Bound to the ExecuteCommand
+        /// Fires when the Enter key has been pressed in the terminal
         /// </summary>
         private void ExecuteCommandEvent()
         {
@@ -156,6 +205,15 @@
 
             // Clear the Input line
             CommandString = String.Empty;
+        }
+
+        /// <summary>
+        /// Fires when an item has been double clicked on in the explorer
+        /// </summary>
+        /// <param name="o"></param>
+        private void NavigateEvent(object o)
+        {
+            var Item = o as FileExplorerObject;
         }
 
         #endregion

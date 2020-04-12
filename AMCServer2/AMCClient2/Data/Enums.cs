@@ -26,7 +26,12 @@ namespace AMCClient2
         /// <summary>
         /// Proceeded action was successful
         /// </summary>
-        ActionSuccessful
+        ActionSuccessful,
+
+        /// <summary>
+        /// Proceeded action was not successful
+        /// </summary>
+        ActionFailed
     }
 
     /// <summary>
@@ -61,6 +66,16 @@ namespace AMCClient2
     public enum MainViews
     {
         ServerInterface
+    }
+
+    /// <summary>
+    /// All item types that can be displayed in the explorer view
+    /// </summary>
+    public enum ExplorerItemTypes
+    {
+        HDD,
+        File,
+        Folder
     }
 
 }

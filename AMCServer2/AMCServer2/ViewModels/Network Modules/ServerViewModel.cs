@@ -65,6 +65,11 @@
         /// </summary>
         public string HandShakeString   { get; set; }
 
+        /// <summary>
+        /// The client currently bound to the server
+        /// </summary>
+        public int BoundClient          { get; set; }
+
         #endregion
 
         /// <summary>
@@ -82,9 +87,14 @@
         #region Events
 
         /// <summary>
-        /// New information event
+        /// Fires when the server has new information
         /// </summary>
         public EventHandler<InformationEventArgs>  ServerInformation;
+
+        /// <summary>
+        /// Fires when data was received from a client
+        /// </summary>
+        public EventHandler<ClientInformationEventArgs>  DataReceived;
 
         #endregion
 
@@ -118,6 +128,8 @@
             ServerBuffer     = new byte[ServerBufferSize];
 
             EndPoint = new IPEndPoint(IPAddress.Any, ListeningPort);
+
+            BoundClient = -1;
 
             // Set the handshake string
             HandShakeString         = String.Empty;
@@ -189,15 +201,70 @@
         }
 
         /// <summary>
+        /// Bind the server to a client
+        /// </summary>
+        /// <param name="ClientID"></param>
+        public void Bind(int ClientID)
+        {
+            try
+            {
+                // Try to find the client with the specified ID
+                BoundClient = ActiveConnections.First(c => c.ID.Equals(ClientID)).ID;
+                // Fire the information event
+                OnServerInformation($"Server is now bound to client: {ClientID}", InformationTypes.ActionSuccessful);
+            }
+
+            // If invalid id was specified
+            catch(InvalidOperationException ex) 
+            {
+                // Fire the information event
+                OnServerInformation(ex.Message, InformationTypes.ActionFailed, false);
+            }
+        }
+
+        /// <summary>
+        /// Send data to a bound client
+        /// </summary>
+        /// <param name="Message"></param>
+        public void Send(string Message)
+        {
+            // Check if server is bound to a client
+            if (BoundClient < 0)
+            {
+                OnServerInformation("Server is not bound to a client", InformationTypes.ActionFailed, false);
+                return;
+            }
+
+
+
+        }
+
+        #region Events
+
+        /// <summary>
         /// Event callback
         /// </summary>
         /// <param name="Data"></param>
-        protected virtual void OnServerInformation(string Information, InformationTypes type)
+        protected virtual void OnServerInformation(string Information, InformationTypes type, bool AddTimeStamp = true)
         {
             // Check so the event is not null
             if (ServerInformation != null)
-                ServerInformation(this, new InformationEventArgs() { Information = Information , MessageType = type });
+                ServerInformation(this, new InformationEventArgs() { Information = Information , 
+                                                                     MessageType = type, 
+                                                                     InformationTimeStamp = (AddTimeStamp) ? DateTime.Now.ToString(): null });
         }
+
+        /// <summary>
+        /// Event callback
+        /// </summary>
+        /// <param name="Client"></param>
+        protected virtual void OnDataReceived(ClientViewModel Client, string Data)
+        {
+            // Fire the event
+            DataReceived(this, new ClientInformationEventArgs() { Client = Client, Data = Data, InformationTimeStamp = DateTime.Now.ToString() });
+        }
+
+        #endregion
 
         #endregion
 
@@ -217,6 +284,11 @@
 
                 try
                 {
+                    byte[] Handshake = new byte[4];
+                    s.Receive(Handshake);
+                    if (Encoding.Default.GetString(Handshake) != "[VF]")
+                        throw new InvalidHandshakeException(s);
+
                     // Create the Client obejct
                     var ClientConnection = new ClientViewModel()
                     {
@@ -257,6 +329,13 @@
 
                     // Call the event
                     OnServerInformation($"New connection from: { s.RemoteEndPoint.ToString()}", InformationTypes.Information);
+                }
+                catch (InvalidHandshakeException ex)
+                {
+                    // Call the event
+                    OnServerInformation($"{s.RemoteEndPoint.ToString()} Tried to connect but failed to verify", InformationTypes.Warning);
+                    // Close the connection
+                    s.Close();
                 }
                 catch (Exception ex)
                 {
@@ -306,6 +385,10 @@
                                      ClientVM.Decryptor.Decrypt(
                                          ReceivedBytes, true) 
                                      );
+
+                    // Call the event
+                    OnDataReceived(ClientVM, Message);
+
                 }
 
                 // Begin receiving again

@@ -14,5 +14,5 @@
         <Setter Property="FontFamily" Value="Consolas"/>
 
     </Style>
-    
+
 </ResourceDictionary>

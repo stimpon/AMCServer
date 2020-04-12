@@ -13,6 +13,11 @@
         public string Information           { get; set; }
 
         /// <summary>
+        /// Timestamp
+        /// </summary>
+        public string InformationTimeStamp { get; set; }
+
+        /// <summary>
         /// The type of the message
         /// </summary>
         public InformationTypes MessageType { get; set; }
