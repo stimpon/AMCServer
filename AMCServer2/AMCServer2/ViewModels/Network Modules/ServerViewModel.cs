@@ -203,7 +203,7 @@
             }
 
             // If invalid id was specified
-            catch(InvalidOperationException ex) 
+            catch(Exception ex)
             {
                 // Fire the information event
                 OnServerInformation(ex.Message, InformationTypes.ActionFailed, false);
@@ -225,12 +225,23 @@
             // Get the bound client
             var Client = ActiveConnections.First(c => c.ID.Equals(BoundClient));
             // Encrypt and get the bytes from the string
-            var Bytes = Client.Encryptor.Encrypt(Encoding.Default.GetBytes(Message), true);
-            // Send the message
-            Client.ClientConnection.BeginSend(Bytes, 0, Bytes.Length, 
-                                              SocketFlags.None, 
-                                              new AsyncCallback(ServerSendCallback), 
-                                              Client.ClientConnection);
+            byte[] Bytes = Encoding.Default.GetBytes(Message);
+            byte[] EncryptedBytes;
+
+            if (Bytes.Length >= 200)
+            {
+
+            }
+            else
+            {
+                EncryptedBytes = Client.Encryptor.Encrypt(Bytes, true);
+                // Send the message
+                Client.ClientConnection.BeginSend(EncryptedBytes, 0, EncryptedBytes.Length,
+                                                  SocketFlags.None,
+                                                  new AsyncCallback(ServerSendCallback),
+                                                  Client.ClientConnection);
+            }
+
             return true;
         }
 
@@ -377,8 +388,10 @@
                     byte[] ReceivedBytes = ClientVM.DataBuffer;
                     Array.Resize(ref ReceivedBytes, Rec);
 
+                    // byte[512] > 511
+
                     // Loop through all of the packets
-                    for(int PacketStart = 0; PacketStart < Rec; PacketStart += 256)
+                    for (int PacketStart = 0; PacketStart < Rec; PacketStart += 256)
                     {
                         // Read the current bytepacket
                         byte[] _packet = ReceivedBytes[new Range(PacketStart, PacketStart + 256)];
@@ -399,6 +412,7 @@
                             OnServerInformation($"{Client.RemoteEndPoint.ToString()} sent data that was not possible to decrypt with the server's public key.\n Data: " +
                                                 $"{Encoding.Default.GetString(ReceivedBytes)}",
                                                 InformationTypes.Warning);
+                            break;
                         }
 
                     }

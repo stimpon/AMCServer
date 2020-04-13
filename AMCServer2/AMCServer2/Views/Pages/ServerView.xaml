@@ -28,7 +28,8 @@
                 </Border>
 
                 <Border Grid.Row="1" Background="{StaticResource SolidColor_DarkBlue}">
-                    
+                    <TextBlock Text="{Binding CurrentPath}" Margin="10,0,10,0" FontSize="12" 
+                               FontFamily="Consolas" VerticalAlignment="Center" Foreground="White"/>
                 </Border>
 
                 <Border Grid.Row="2" Background="{StaticResource SolidColor_Gray}">

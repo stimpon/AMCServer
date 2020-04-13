@@ -152,8 +152,17 @@
         /// <param name="Message"></param>
         public void Send(string Message)
         {
-            // Encrypt the data and send it to the server
-            ServerConnection.Send(Encryptor.Encrypt(Encoding.Default.GetBytes(Message), true));
+            try
+            {
+                // Encrypt the data and send it to the server
+                byte[] data = Encryptor.Encrypt(Encoding.Default.GetBytes(Message), true);
+                ServerConnection.Send(data);
+            }
+            catch(CryptographicException ex)
+            {
+
+            }
+            catch(Exception ex) { }
         }
 
         /// <summary>

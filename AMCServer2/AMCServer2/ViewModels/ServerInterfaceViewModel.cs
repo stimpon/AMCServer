@@ -30,6 +30,9 @@
         /// </summary>
         public RelayCommandNoParameters ExecuteCommand { get; set; }
 
+        /// <summary>
+        /// When an item is double clicked on in the explorer
+        /// </summary>
         public RelayCommand ExplorerDoubleClick { get; set; }
 
         #endregion
@@ -43,22 +46,22 @@
         /// These are the items that will be displayed in the explorer
         /// </summary>
         public ThreadSafeObservableCollection<FileExplorerObject> ExplorerItems { get; set; }
+        /// <summary>
+        /// The current path in the explorer
+        /// </summary>
+        public string CurrentPathOnClientPC { get; set; }
 
         /// <summary>
         /// The string that is linked to the command box
         /// </summary>
-        public string CommandString 
-        { 
-            get; 
-            set; 
-        } = String.Empty;
+        public string CommandString  { get;  set; } = String.Empty;
 
         #endregion
 
         /// <summary>
         /// Default constructor
-        /// </summary>
         public ServerInterfaceViewModel()
+        /// </summary>
         {
             if (ProgramState.IsRunning)
                 // Call the Init method when a new instance of this VM is created
@@ -81,6 +84,7 @@
                 new LogItem() { Content = "AMCServer [Version 1.0.0]", ShowTime = false, Type = InformationTypes.Information } ,
                 new LogItem() { Content = "(c) 2020 Stimpon",          ShowTime = false, Type = InformationTypes.Information } ,
             };
+            ExplorerItems = new ThreadSafeObservableCollection<FileExplorerObject>();
 
             #region Create commands
 
@@ -134,10 +138,10 @@
                     case ":stop": IoC.Container.Get<ServerViewModel>().Shutdown(); break;
 
                     case ":getdrives":
-                        if (IoC.Container.Get<ServerViewModel>().Send("[DRIVES]"))
-                        {
-                            ExplorerItems = new ThreadSafeObservableCollection<FileExplorerObject>();
-                        }
+                        // Prepare the explorer
+                        ExplorerItems.Clear();
+                        // If the message was sent successfuly, clear the explorer to prepare it for the incoming data
+                        IoC.Container.Get<ServerViewModel>().Send("[DRIVES]");
                         break;
 
                     /* :help >> Provide help information
@@ -184,14 +188,15 @@
             // Check what data was sent and from wich client
             if (e.Data.StartsWith("[PRINT]"))
             {
-                ServerLog.Add(new LogItem()
-                {
-                    Content = $"{e.Client.ClientConnection.RemoteEndPoint.ToString()} said: {e.Data.Substring(7)}",
-                    EventTime = e.InformationTimeStamp,
-                    ShowTime = true,
-                    Type = InformationTypes.Information
-                });
+                // Add the message to the server log
+                ServerLog.Add(new LogItem() { Content = $"{e.Client.ClientConnection.RemoteEndPoint.ToString()} said: {e.Data.Substring(7)}",
+                                              EventTime = e.InformationTimeStamp,
+                                              ShowTime = true,
+                                              Type = InformationTypes.Information });
             }
+
+            #region Navigation
+
             // Client sent a HDD object
             if (e.Data.StartsWith("[DRIVE]"))
             {
@@ -200,10 +205,56 @@
                 // Create the object and add it to the list
                 ExplorerItems.Add(new FileExplorerObject()
                 {
-                    Name = $"{data[1]} {data[0]}",
+                    Name = $"{data[1]} ({data[0]})",
+                    Path = data[0],
                     Type = ExplorerItemTypes.HDD
                 });
             }
+            // Client sent a file object
+            else if (e.Data.StartsWith("[FILE]"))
+            {
+                // Split the received data
+                string[] data = e.Data.Substring(6).Split('|');
+                // Create the object and add it to the list
+                ExplorerItems.Add(new FileExplorerObject()
+                {
+                    Name = data[0],
+                    Extension = data[1],
+                    Size = long.Parse(data[2]),
+                    Type = ExplorerItemTypes.File
+                });
+            }
+            // Client sent a folder
+            else if (e.Data.StartsWith("[FOLDER]"))
+            {
+                // Create the object and add it to the list
+                ExplorerItems.Add(new FileExplorerObject()
+                {
+                    Name = e.Data.Substring(8),
+                    Type = ExplorerItemTypes.Folder
+                });
+            }
+
+            // Navigation to the new path was successful
+            if (e.Data.StartsWith("[NAVOK]"))
+            {
+                // Prepare the explorer
+                ExplorerItems.Clear();
+                // Set the new path
+                CurrentPathOnClientPC = e.Data.Substring(7);
+            }
+
+            // Permission denied to that path
+            if(e.Data.StartsWith("[NAVER]"))
+                ServerLog.Add(new LogItem()
+                {
+                    Content = $"Permission to the path '{e.Data.Substring(7)}' was denied",
+                    EventTime = null,
+                    ShowTime = false,
+                    Type = InformationTypes.ActionFailed
+                });
+
+            #endregion
         }
 
         /// <summary>
@@ -232,7 +283,18 @@
         /// <param name="o"></param>
         private void NavigateEvent(object o)
         {
+            // Change to the correct item
             var Item = o as FileExplorerObject;
+
+            // Check if the item is navigateable
+            if( Item.Type == ExplorerItemTypes.HDD || 
+                Item.Type == ExplorerItemTypes.Folder) {
+
+                // Request navigation
+                IoC.Container.Get<ServerViewModel>().Send((Item.Type == ExplorerItemTypes.Folder) ? 
+                    $"[NAV]{CurrentPathOnClientPC}\\{Item.Name}" : 
+                    $"[NAV]{Item.Path}");
+            }
         }
 
         #endregion

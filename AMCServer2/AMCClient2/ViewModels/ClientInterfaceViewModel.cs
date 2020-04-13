@@ -42,6 +42,11 @@
         /// These are the items that will be displayed in the explorer
         /// </summary>
         public ThreadSafeObservableCollection<FileExplorerObject> ExplorerItems { get; set; }
+        /// <summary>
+        /// The current path in the explorer
+        /// </summary>
+        public string CurrentPathOnServerPC { get; set; }
+
 
         /// <summary>
         /// The string that is linked to the command box
@@ -139,6 +144,39 @@
         }
 
         /// <summary>
+        /// Navigate to a path
+        /// </summary>
+        /// <param name="path"></param>
+        private void SendPathItems(string path)
+        {
+            // Persmission error is possible
+            try
+            {
+                // Read all directories from the requested path
+                var Folders = Directory.GetDirectories(path);
+                // Read all files from the requested path
+                var Files = Directory.GetFiles(path);
+
+                // Send navigation OK message
+                IoC.Container.Get<ClientViewModel>().Send($"[NAVOK]{path}");
+
+                // Loop through all folders and send them to the server
+                foreach (var Folder in Folders)
+                    IoC.Container.Get<ClientViewModel>().Send($"[FOLDER]" +
+                        $"{Path.GetFileName(Folder)}");
+                // Loop through all files and send them to the server
+                foreach (var File in Files)
+                {
+                    FileInfo f = new FileInfo(File);
+                    IoC.Container.Get<ClientViewModel>().Send($"[FILE]" +
+                        $"{f.Name}|{f.Extension}|{f.Length}");
+                }
+            }
+            // Send back that the navigation failed
+            catch { IoC.Container.Get<ClientViewModel>().Send($"[NAVER]{path}"); }
+        }
+
+        /// <summary>
         /// When a message is sent from the server, print it to the terminal
         /// </summary>
         /// <param name="sender"></param>
@@ -163,6 +201,8 @@
         {
             if (Data.StartsWith("[DRIVES]"))
                 SendDrivesToServer();
+            if (Data.StartsWith("[NAV]"))
+                SendPathItems(Data.Substring(5));
         }
 
         /// <summary>
