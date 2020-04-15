@@ -90,7 +90,7 @@
         /// Default constructor
         /// </summary>
         public ServerViewModel
-            (int port, int backlog) {
+            (int port, int backlog, int buffer_size) {
 
             /* Port cant be negative but the IPEndpoint Class does
              * not accespt uint's in the parameter
@@ -100,6 +100,7 @@
 
             ListeningPort = port;
             ServerBacklog = backlog;
+            BufferSize    = buffer_size;
 
             Initialize(); 
         }
@@ -111,11 +112,10 @@
         /// </summary>
         public void Initialize()
         {
-            // Setup server buffer
-            BufferSize = 10240;
-
+            // Create the endpoing
             EndPoint = new IPEndPoint(IPAddress.Any, ListeningPort);
 
+            // Set bound client to none
             BoundClient = -1;
 
             // Set the handshake string
@@ -224,22 +224,28 @@
             }
             // Get the bound client
             var Client = ActiveConnections.First(c => c.ID.Equals(BoundClient));
-            // Encrypt and get the bytes from the string
-            byte[] Bytes = Encoding.Default.GetBytes(Message);
-            byte[] EncryptedBytes;
 
-            if (Bytes.Length >= 200)
-            {
+            // Send the data length
+            Client.ClientConnection.Send(Client.Encryptor.Encrypt( Encoding.Default.GetBytes(
+                                                                   (Message.Length).ToString()), 
+                                                                   true));
 
-            }
-            else
+            // Split up the data into 100 byte chunks
+            for(int Length = 0; Length < Message.Length; Length += 100)
             {
-                EncryptedBytes = Client.Encryptor.Encrypt(Bytes, true);
-                // Send the message
-                Client.ClientConnection.BeginSend(EncryptedBytes, 0, EncryptedBytes.Length,
-                                                  SocketFlags.None,
-                                                  new AsyncCallback(ServerSendCallback),
-                                                  Client.ClientConnection);
+                // Packet that will be sent
+                byte[] _packet;
+
+                // Check if this will be the last packet
+                if ((Length + 100) >= Message.Length)
+                    _packet = Client.Encryptor.Encrypt(
+                       Encoding.Default.GetBytes(Message[new Range(Length, Message.Length)]), true);
+                else
+                    _packet = Client.Encryptor.Encrypt(
+                        Encoding.Default.GetBytes(Message[new Range(Length, Length + 100)]), true);
+
+                // Send the packet
+                Client.ClientConnection.Send(_packet);
             }
 
             return true;
@@ -298,10 +304,11 @@
                     // Create the Client obejct
                     var ClientConnection = new ClientViewModel()
                     {
-                        ClientConnection = s,
-                        Verified = true,
+                        ClientConnection  = s,
+                        Verified          = true,
                         AutorisationLevel = 0,
-                        DataBuffer = new byte[BufferSize]
+                        CurrentDataSize   = 0,
+                        DataBuffer        = new byte[BufferSize]
                     };
 
                     // Create placeholder for the clients public key
@@ -372,68 +379,84 @@
             Socket Client = (Socket)ar.AsyncState;
             // Get the conenction object from the list of active connections
             var ClientVM = ActiveConnections.FirstOrDefault(c => c.ClientConnection.Equals(Client));
-            // Server is shutting down
+
+            // Server is shutting down if this is null
             if (ClientVM == null) return;
 
-            // This can fail if client disconnects
-            try
-            {
-                // Check the lengt of the sent data
-                int Rec = Client.EndReceive(ar);
+            // Holds the amount of bytes received
+            int Rec = 0;
 
-                // Check if empty byte packet was sent
-                if(Rec > 0)
-                {
-                    // Create new buffer and resize it to the correct size
-                    byte[] ReceivedBytes = ClientVM.DataBuffer;
-                    Array.Resize(ref ReceivedBytes, Rec);
+            // Get the amount of bytes received
+            try { Rec = Client.EndReceive(ar); }
 
-                    // byte[512] > 511
-
-                    // Loop through all of the packets
-                    for (int PacketStart = 0; PacketStart < Rec; PacketStart += 256)
-                    {
-                        // Read the current bytepacket
-                        byte[] _packet = ReceivedBytes[new Range(PacketStart, PacketStart + 256)];
-
-                        // Decrypt and convert the received bytes to a string
-                        try
-                        {
-                            // Encrypt the bytes and retrieve the string
-                            string Message = Encoding.Default.GetString(
-                                             ClientVM.Decryptor.Decrypt(
-                                             _packet, true)
-                                             );
-                            // Call the event
-                            OnDataReceived(ClientVM, Message);
-                        }
-                        catch
-                        {
-                            OnServerInformation($"{Client.RemoteEndPoint.ToString()} sent data that was not possible to decrypt with the server's public key.\n Data: " +
-                                                $"{Encoding.Default.GetString(ReceivedBytes)}",
-                                                InformationTypes.Warning);
-                            break;
-                        }
-
-                    }
-                }
-
-                // Begin receiving again
-                Client.BeginReceive(ClientVM.DataBuffer, 0, BufferSize,
-                                                            SocketFlags.None,
-                                                            new AsyncCallback(ServerReceiveCallback),
-                                                            Client);
-            }
-            // Remove the connection
-            catch 
+            // This will fail if the client disconnects
+            catch
             {
                 // Call the event
-                OnServerInformation($"{Client.RemoteEndPoint.ToString()} disconnected", InformationTypes.Information);               
+                OnServerInformation($"{Client.RemoteEndPoint.ToString()} disconnected", InformationTypes.Information);
                 // Close the connection
                 Client.Close();
                 // Remove client from the list of active connections
                 ActiveConnections.Remove(ClientVM);
+
+                // Exit and kill this thread
+                return;
             }
+
+            // Check if empty byte packet was sent
+            if (Rec > 0)
+            {
+                // Create new buffer and resize it to the correct size
+                byte[] ReceivedBytes = ClientVM.DataBuffer;
+                Array.Resize(ref ReceivedBytes, Rec);
+
+                // Loop through all of the packets in the buffer (We know that the packets will be 256 bytes long)
+                for (int PacketStart = 0; PacketStart < Rec; PacketStart += 256)
+                {
+                    // Get the current packet from the buffer
+                    byte[] _packet = ReceivedBytes[new Range(PacketStart, PacketStart + 256)];
+
+                    // Check if is is the first packet in the buffer
+                    if (ClientVM.CurrentDataSize.Equals(0))
+                    {
+                        /* Then this packet will cantain the size
+                         * of the data that will be received
+                         */
+
+                        // Get the expected data size
+                        ClientVM.CurrentDataSize = long.Parse( Encoding.Default.GetString(
+                                                               ClientVM.Decryptor.Decrypt(
+                                                               _packet, true)));
+                        // Empty the client's datastring
+                        ClientVM.CurrentDataString = String.Empty;
+                    }
+                    // Keep adding the data to the datastring
+                    else
+                    {
+                        // Decrypt the packet and add it to the datastring
+                        ClientVM.CurrentDataString += Encoding.Default.GetString(
+                                                      ClientVM.Decryptor.Decrypt(
+                                                      _packet, true));
+
+                        // Check if all btyes has been received
+                        if (ClientVM.CurrentDataString.Length == ClientVM.CurrentDataSize)
+                        {
+                            // Call the event
+                            OnDataReceived(ClientVM, ClientVM.CurrentDataString);
+
+                            // Reset the datasize
+                            ClientVM.CurrentDataSize = 0;
+                        }
+                    }
+
+                }
+            }
+
+            // Begin to receive more data
+            Client.BeginReceive(ClientVM.DataBuffer, 0, BufferSize,
+                                                        SocketFlags.None,
+                                                        new AsyncCallback(ServerReceiveCallback),
+                                                        Client);
         }
 
         /// <summary>

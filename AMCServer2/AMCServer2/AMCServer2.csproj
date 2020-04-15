@@ -22,11 +22,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Program Files\Config Files\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Update="Program Files\Commands.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Program Files\Config Files\server.cfg">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

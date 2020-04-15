@@ -17,10 +17,19 @@ namespace AMCServer2.IoC
         /// </summary>
         public static void SetupIoC()
         {
+            /* This function should run on startup and it
+             * will bind all neccesery ViewModel's to the
+             * kernel
+             */
 
-            // ViewModel binding
+            // This is the underlaying application ViewModel
             Kernel.Bind<ApplicationViewModel>().ToConstant(new ApplicationViewModel());
-            Kernel.Bind<ServerViewModel>().ToConstant(new ServerViewModel(400, 3));
+
+            //                                                           - Read all properties from the config file
+            //                                                           - Pass them to the constructor of the ServerViewModel
+            Kernel.Bind<ServerViewModel>().ToConstant(new ServerViewModel( ConfigFilesProcessor.GetServerPort(),
+                                                                           ConfigFilesProcessor.GetServerBacklog(),
+                                                                           ConfigFilesProcessor.GetServerBufferSize()));
         }
 
         /// <summary>

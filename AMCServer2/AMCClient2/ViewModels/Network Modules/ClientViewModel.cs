@@ -76,6 +76,16 @@
         /// </summary>
         private byte[] GlobalBuffer;
 
+        /// <summary>
+        /// Size of the currently receiving data
+        /// </summary>
+        private long CurrentDataSize;
+
+        /// <summary>
+        /// Current data stream
+        /// </summary>
+        private string CurrentDataString;
+
         #endregion
 
         /// <summary>
@@ -152,17 +162,28 @@
         /// <param name="Message"></param>
         public void Send(string Message)
         {
-            try
-            {
-                // Encrypt the data and send it to the server
-                byte[] data = Encryptor.Encrypt(Encoding.Default.GetBytes(Message), true);
-                ServerConnection.Send(data);
-            }
-            catch(CryptographicException ex)
-            {
+            // Send the data length
+            ServerConnection.Send(Encryptor.Encrypt( Encoding.Default.GetBytes(
+                                                     (Message.Length).ToString()), 
+                                                     true));
 
+            // Split up the data into 100 byte chunks
+            for(int Length = 0; Length < Message.Length; Length += 100)
+            {
+                // Packet that will be sent
+                byte[] _packet;
+
+                // Check if this will be the last packet
+                if ((Length + 100) >= Message.Length)
+                     _packet = Encryptor.Encrypt(
+                        Encoding.Default.GetBytes(Message[new Range(Length, Message.Length)]), true);
+                else
+                    _packet = Encryptor.Encrypt(
+                        Encoding.Default.GetBytes(Message[new Range(Length, Length + 100)]), true);
+
+                // Send the data
+                ServerConnection.Send(_packet);
             }
-            catch(Exception ex) { }
         }
 
         /// <summary>
@@ -247,58 +268,84 @@
             // Het the socket from the parameter
             Socket s = (Socket)ar.AsyncState;
 
-            // This can fail if the server closes
-            try
-            {
-                // Get the lenght of the received bytes
-                int rec = s.EndReceive(ar);
+            // Will hold the amount of bytes received
+            int rec = 0;
 
-                // Check if empty packet was sent
-                if(rec > 0)
-                {
-                    // Create new buffer and resize it to the correct size
-                    byte[] ReceivedBytes = GlobalBuffer;
-                    Array.Resize(ref ReceivedBytes, rec);
+            // Get the amount of bytes received
+            try { rec = s.EndReceive(ar); }
 
-                    try
-                    {
-                        // Encrypt and get the data
-                        string Message = Encoding.Default.GetString(
-                                         Decryptor.Decrypt(
-                                         ReceivedBytes, true)
-                                         );
-
-                        // Call the event
-                        OnDataReceived(Message);
-                    }
-                    catch
-                    {
-                        OnClientInformation($"The server sent data that was not possible to decrypt.\n Data: " +
-                                            $"{Encoding.Default.GetString(ReceivedBytes)}",
-                                            InformationTypes.Warning);
-                    }
-
-                }
-
-                // Listen for more data from the server
-                ServerConnection.BeginReceive(GlobalBuffer, 0, GlobalBuffer.Length,
-                              SocketFlags.None,
-                              new AsyncCallback(ReceiveCallback),
-                              s);
-            }
-
-            // Close the connection and change the client connection state
+            // This will fail if the server shutdowns
             catch
-            {
+            {                 
                 // Close the socket
                 s.Close();
 
                 // Call the infromation event
-                OnClientInformation("A connection error occured and you where disconnected from the server", InformationTypes.Error);
+                OnClientInformation("You were disconnected from the server", InformationTypes.Error);
 
                 // Set the connection state to disconnected
                 ClientState = ClientStates.Disconnected;
+
+                // Reurn and kill this thread
+                return;
             }
+
+            // Check if empty packet was sent
+            if (rec > 0)
+            {
+                // Create new buffer and resize it to the correct size
+                byte[] ReceivedBytes = GlobalBuffer;
+                Array.Resize(ref ReceivedBytes, rec);
+
+                // Loop through all of the packets in the buffer (We know that the packets will be 256 bytes long)
+                for(int PacketStart = 0; PacketStart < rec; PacketStart += 256)
+                {
+                    // Get the current packet from the buffer
+                    byte[] _packet = ReceivedBytes[new Range(PacketStart, PacketStart + 256)];
+
+                    // Check if it is the first packet in the stream
+                    if (CurrentDataSize.Equals(0))
+                    {
+                        /* Then this packet will cantain the size
+                         * of the data that will be received
+                         */
+
+                        // Get the expected data size
+                        CurrentDataSize = long.Parse(Encoding.Default.GetString(
+                                                      Decryptor.Decrypt(
+                                                      _packet, true)));
+
+                        // Empty the datastring
+                        CurrentDataString = String.Empty;
+
+                    }
+                    // Keep adding the data to the data stream
+                    else
+                    {
+                        // Decrypt the packet and add it to the datastring
+                        CurrentDataString += Encoding.Default.GetString(
+                                             Decryptor.Decrypt(
+                                             _packet, true));
+
+                        // Check if all btyes has been received
+                        if (CurrentDataString.Length == CurrentDataSize)
+                        {
+                            // Call the event
+                            OnDataReceived(CurrentDataString);
+
+                            // Reset the datsize
+                            CurrentDataSize = 0;
+                        }
+                    }
+                }
+
+            }
+
+            // Listen for more data from the server
+            ServerConnection.BeginReceive(GlobalBuffer, 0, GlobalBuffer.Length,
+                                          SocketFlags.None,
+                                          new AsyncCallback(ReceiveCallback),
+                                          s);
         }
 
         #endregion

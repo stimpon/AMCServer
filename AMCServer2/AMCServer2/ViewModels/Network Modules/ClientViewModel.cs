@@ -39,7 +39,20 @@
         /// </summary>
         public string ClientConnectionString => ClientConnection.RemoteEndPoint.ToString();
 
+        /// <summary>
+        /// This client's global data buffer
+        /// </summary>
         public byte[] DataBuffer { get; set; }
+
+        /// <summary>
+        /// Size of the data that is currently been received
+        /// </summary>
+        public long CurrentDataSize { get; set; }
+
+        /// <summary>
+        /// The currently decrypted data
+        /// </summary>
+        public string CurrentDataString { get; set; }
 
         /// <summary>
         /// This tells the server what this client can
