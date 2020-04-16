@@ -342,12 +342,12 @@
                     ActiveConnections.Add(ClientConnection);
 
                     // Call the event
-                    OnServerInformation($"New connection from: { s.RemoteEndPoint.ToString()}", InformationTypes.Information);
+                    OnServerInformation($"New connection from: { s.RemoteEndPoint}", InformationTypes.Information);
                 }
                 catch (InvalidHandshakeException ex)
                 {
                     // Call the event
-                    OnServerInformation($"{s.RemoteEndPoint.ToString()} Tried to connect but failed to verify", InformationTypes.Warning);
+                    OnServerInformation($"{s.RemoteEndPoint} Tried to connect but failed to verify", InformationTypes.Warning);
                     // Close the connection
                     s.Close();
                 }
