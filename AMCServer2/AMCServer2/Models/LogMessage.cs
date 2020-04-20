@@ -10,7 +10,7 @@
     /// <summary>
     /// Item that will be displayed in the server log
     /// </summary>
-    public class LogItem
+    public class LogMessage : ILogMessage
     {
         /// <summary>
         /// Log time
@@ -30,6 +30,6 @@
         /// <summary>
         /// Type of log
         /// </summary>
-        public InformationTypes Type   { get; set; }
+        public Responses Type   { get; set; }
     }
 }

@@ -35,12 +35,17 @@
         /// </summary>
         public RelayCommand ExplorerDoubleClick { get; set; }
 
+        /// <summary>
+        /// When the download button is clicked on in the explorer
+        /// </summary>
+        public RelayCommand DownloadFileClick { get; set; }
+
         #endregion
 
         /// <summary>
         /// This is the serverlog that will be displayed in the server console
         /// </summary>
-        public ThreadSafeObservableCollection<LogItem> ServerLog { get; set; }
+        public ThreadSafeObservableCollection<ILogMessage> ServerLog { get; set; }
 
         /// <summary>
         /// These are the items that will be displayed in the explorer
@@ -80,24 +85,27 @@
             VM = this;
 
             // This is the standard message that shows when the program starts
-            ServerLog = new ThreadSafeObservableCollection<LogItem>() { 
-                new LogItem() { Content = "AMCServer [Version 1.0.0]", ShowTime = false, Type = InformationTypes.Information } ,
-                new LogItem() { Content = "(c) 2020 Stimpon",          ShowTime = false, Type = InformationTypes.Information } ,
+            ServerLog = new ThreadSafeObservableCollection<ILogMessage>() {
+                new LogMessage() { Content = "AMCServer [Version 1.0.0]", ShowTime = false, Type = Responses.Information } ,
+                new LogMessage() { Content = "(c) 2020 Stimpon",          ShowTime = false, Type = Responses.Information } ,
             };
             ExplorerItems = new ThreadSafeObservableCollection<FileExplorerObject>();
 
             #region Create commands
 
             // Command for exetuting commands
-            ExecuteCommand = new RelayCommandNoParameters(ExecuteCommandEvent);
+            ExecuteCommand      = new RelayCommandNoParameters(ExecuteCommandEvent);
             // Navigate command
             ExplorerDoubleClick = new RelayCommand(NavigateEvent, (o) => { return true; });
+            // Download command
+            DownloadFileClick   = new RelayCommand(DownloadEvent);
 
             #endregion
 
             // Subscribe to server events
-            IoC.Container.Get<ServerViewModel>().ServerInformation += OnServerInformation;
-            IoC.Container.Get<ServerViewModel>().DataReceived += OnDataReceived;
+            IoC.Container.Get<ServerViewModel>().NewServerInformation += OnServerInformation;
+            IoC.Container.Get<ServerViewModel>().NewDataReceived      += OnDataReceived;
+            IoC.Container.Get<ServerViewModel>().FileBytesReceived    += OnFileBytesReceived;
 
         }
 
@@ -113,11 +121,11 @@
             {
                 // Try to parse the argument into an int
                 if (int.TryParse(CommandString.Substring(5), out int ID))
-                    IoC.Container.Get<ServerViewModel>().Bind(ID);
+                    IoC.Container.Get<ServerViewModel>().BindServer(ID);
                 else
-                    ServerLog.Add(new LogItem() { Content  = $"'{CommandString.Substring(5)}' is an invalid ID", 
+                    ServerLog.Add(new LogMessage() { Content  = $"'{CommandString.Substring(5)}' is an invalid ID", 
                                                   ShowTime = false, 
-                                                  Type     = InformationTypes.Error });
+                                                  Type     = Responses.Error });
             }
 
             // Check if standalone command
@@ -135,7 +143,9 @@
 
                     /* :stop >> Stop the server
                      */
-                    case ":stop": IoC.Container.Get<ServerViewModel>().Shutdown(); break;
+                    case ":stop": IoC.Container.Get<ServerViewModel>().StopServer(); break;
+
+                    case ":unbind": IoC.Container.Get<ServerViewModel>().UnbindServer(); break;
 
                     case ":getdrives":
                         // Prepare the explorer
@@ -148,7 +158,7 @@
                      */
                     case ":help":
                         foreach (string ch in File.ReadAllLines(Environment.CurrentDirectory + "\\Program Files\\Commands.txt"))
-                            ServerLog.Add(new LogItem()
+                            ServerLog.Add(new LogMessage()
                             {
                                 Content = ch,
                                 ShowTime = false
@@ -156,7 +166,7 @@
 
                     // Invalid command
                     default:
-                        ServerLog.Add(new LogItem() { Content = $"'{CommandString}' is not recognized as a command, use ':h' for help", ShowTime = false });
+                        ServerLog.Add(new LogMessage() { Content = $"'{CommandString}' is not recognized as a command, use ':h' for help", ShowTime = false });
                         return;
                 }
             }
@@ -169,7 +179,7 @@
         /// <param name="e"></param>
         private void OnServerInformation(object sender, InformationEventArgs e)
         {
-            ServerLog.Add(new LogItem()
+            ServerLog.Add(new LogMessage()
             {
                 Content   = e.Information,
                 ShowTime  = (e.InformationTimeStamp != null) ? true : false,
@@ -189,10 +199,10 @@
             if (e.Data.StartsWith("[PRINT]"))
             {
                 // Add the message to the server log
-                ServerLog.Add(new LogItem() { Content = $"{e.Client.ClientConnection.RemoteEndPoint.ToString()} said: {e.Data.Substring(7)}",
+                ServerLog.Add(new LogMessage() { Content = $"{e.Client.ClientConnection.RemoteEndPoint.ToString()} said: {e.Data.Substring(7)}",
                                               EventTime = e.InformationTimeStamp,
                                               ShowTime = true,
-                                              Type = InformationTypes.Information });
+                                              Type = Responses.Information });
             }
 
             #region Navigation
@@ -207,7 +217,8 @@
                 {
                     Name = $"{data[1]} ({data[0]})",
                     Path = data[0],
-                    Type = ExplorerItemTypes.HDD
+                    Type = ExplorerItemTypes.HDD,
+                    PermissionsDenied = false
                 });
             }
             // Client sent a file object
@@ -227,34 +238,29 @@
             // Client sent a folder
             else if (e.Data.StartsWith("[FOLDER]"))
             {
+                // Split the recieved data
+                string[] data = e.Data.Substring(8).Split('|');
+
                 // Create the object and add it to the list
                 ExplorerItems.Add(new FileExplorerObject()
                 {
-                    Name = e.Data.Substring(8),
-                    Type = ExplorerItemTypes.Folder
+                    Name = data[0],
+                    Type = ExplorerItemTypes.Folder,
+                    PermissionsDenied = bool.Parse(data[1])
                 });
             }
-
-            // Navigation to the new path was successful
-            if (e.Data.StartsWith("[NAVOK]"))
-            {
-                // Prepare the explorer
-                ExplorerItems.Clear();
-                // Set the new path
-                CurrentPathOnClientPC = e.Data.Substring(7);
-            }
-
-            // Permission denied to that path
-            if(e.Data.StartsWith("[NAVER]"))
-                ServerLog.Add(new LogItem()
-                {
-                    Content = $"Permission to the path '{e.Data.Substring(7)}' was denied",
-                    EventTime = null,
-                    ShowTime = false,
-                    Type = InformationTypes.ActionFailed
-                });
 
             #endregion
+        }
+
+        /// <summary>
+        /// When bytes is received from the DownloadingSocket
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void OnFileBytesReceived(object sender, byte[] e)
+        {
+
         }
 
         /// <summary>
@@ -263,7 +269,7 @@
         #region Command actions
 
         /// <summary>
-        /// Fires when the Enter key has been pressed in the terminal
+        /// Is called when the Enter key has been pressed in the terminal
         /// </summary>
         private void ExecuteCommandEvent()
         {
@@ -278,23 +284,45 @@
         }
 
         /// <summary>
-        /// Fires when an item has been double clicked on in the explorer
+        /// Is called when an item has been double clicked on in the explorer
         /// </summary>
         /// <param name="o"></param>
         private void NavigateEvent(object o)
         {
-            // Change to the correct item
             var Item = o as FileExplorerObject;
 
             // Check if the item is navigateable
             if( Item.Type == ExplorerItemTypes.HDD || 
                 Item.Type == ExplorerItemTypes.Folder) {
 
+                // Return if server is not granted permissions to that folder or drive
+                if (Item.PermissionsDenied)
+                    return;
+
+                // Prepare the explorer for new items
+                ExplorerItems.Clear();
+
                 // Request navigation
                 IoC.Container.Get<ServerViewModel>().Send((Item.Type == ExplorerItemTypes.Folder) ? 
                     $"[NAV]{CurrentPathOnClientPC}\\{Item.Name}" : 
                     $"[NAV]{Item.Path}");
+
+                // Set the new path (Formats the string so it looks good)
+                CurrentPathOnClientPC += (Item.Type == ExplorerItemTypes.HDD) ? Item.Path.Substring(0, Item.Path.Length - 1) : $"/{Item.Name}"; 
+                                                                                 
             }
+        }
+
+        /// <summary>
+        /// Is called when the download button is clicked on a file
+        /// </summary>
+        /// <param name="o"></param>
+        private void DownloadEvent(object o)
+        {
+            var Item = o as FileExplorerObject;
+
+            // Send downloading request
+            IoC.Container.Get<ServerViewModel>().Send($"[DOWNLOAD]{CurrentPathOnClientPC}\\{Item.Name}");
         }
 
         #endregion

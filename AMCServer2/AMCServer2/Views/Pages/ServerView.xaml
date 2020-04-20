@@ -47,25 +47,45 @@
                                         <ControlTemplate>
 
                                             <Border Background="{TemplateBinding ListViewItem.Background}">
-                                                <DockPanel Margin="10,5,15,5">
-                                                    <TextBlock FontFamily="{StaticResource FontAwesome}" 
+                                                <DockPanel Margin="10,5,15,5" ScrollViewer.HorizontalScrollBarVisibility="Hidden">
+
+                                                    <Border Width="30">
+                                                        <Grid>
+                                                            <TextBlock FontFamily="{StaticResource FontAwesome}" 
                                                                Text="{Binding Converter={local:ExplorerItemToIconConverter}}" 
                                                                FontSize="25" Foreground="{StaticResource SolidColor_Blue}" Width="30"/>
+                                                            <TextBlock FontFamily="{StaticResource FontAwesome}"
+                                                               Text="{StaticResource Lock}" Visibility="{Binding PermissionsDenied, Converter={local:BoolToVisibilityConverter}}"
+                                                               FontSize="18" Foreground="Gold" Width="30" TextAlignment="Center" HorizontalAlignment="Center"/>
+                                                        </Grid>
+                                                    </Border>
 
                                                     <TextBlock Text="{Binding Name}" VerticalAlignment="Center" 
                                                                HorizontalAlignment="Left" FontFamily="Consolas"
                                                                Margin="15,0,0,0" FontSize="12"
-                                                               Foreground="White" Width="200"/>
+                                                               Foreground="White" Width="180"/>
 
                                                     <TextBlock Text="{Binding Extension}" VerticalAlignment="Center" 
                                                                HorizontalAlignment="Left" FontFamily="Consolas"
                                                                Margin="10,0,0,0" FontSize="12"
-                                                               Foreground="White" Width="50"/>
+                                                               Foreground="White" Width="40"/>
 
-                                                    <TextBlock Text="{Binding Converter={local:BytesToFormatedSizeStringConverter}}" VerticalAlignment="Center" 
+                                                    <TextBlock Text="{Binding FormatedSizeString}" VerticalAlignment="Center" 
                                                                HorizontalAlignment="Right" FontFamily="Consolas"
-                                                               Margin="10,0,20,0" FontSize="12"
-                                                               Foreground="White"/>
+                                                               Margin="10,0,5,0" FontSize="12"
+                                                               Foreground="White" Width="60" TextAlignment="Right"/>
+
+                                                    <Button Visibility="{Binding CanBeDownLoaded, Converter={local:BoolToVisibilityConverter}}">
+                                                        <Button.Template>
+                                                            <ControlTemplate>
+                                                                <Border BorderThickness="0" Width="50">
+                                                                    <TextBlock FontFamily="{StaticResource FontAwesome}" Text="{StaticResource Download}" FontSize="22"                                                                           
+                                                                               HorizontalAlignment="Right" Margin="0" Foreground="{StaticResource SolidColor_Green}"/>
+                                                                </Border>
+                                                            </ControlTemplate>
+                                                        </Button.Template>
+                                                    </Button>
+                                                    
                                                 </DockPanel>
 
                                                 <Border.InputBindings>
@@ -125,7 +145,7 @@
                     </ListView.View>
                 </ListView>
                 
-                <StackPanel Background="{StaticResource SolidColor_Gray}" Grid.Row="1" Orientation="Horizontal">
+                <DockPanel Background="{StaticResource SolidColor_Gray}" Grid.Row="1">
                     <TextBlock Text="{StaticResource TerminalIcon}" FontSize="20" VerticalAlignment="Center" 
                                Margin="5,0,0,0" Foreground="{StaticResource SolidColor_Green}" FontFamily="{StaticResource FontAwesome}"/>
                     <TextBlock Margin="5,0,0,0" Foreground="White" Text="Terminal" VerticalAlignment="Center" 
@@ -134,9 +154,19 @@
                         <Run Text="| Server state: "/><Run Text="{Binding ServerViewModel.ServerState, Source={x:Static local:Locator.Instance}, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}"/>
                     </TextBlock>
                     <TextBlock VerticalAlignment="Center" Foreground="White" FontFamily="Consolas" FontSize="13" Margin="10,0,0,0">
-                        <Run Text="| Bound client: "/><Run Text="{Binding ServerViewModel.BoundClient, Source={x:Static local:Locator.Instance}}"/>
+                        <Run Text="| Bound client: "/><Run Text="{Binding ServerViewModel.BoundClient, Source={x:Static local:Locator.Instance}, Mode=OneWay}"/>
                     </TextBlock>
-                </StackPanel>
+
+                    <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                        <TextBlock FontSize="18" FontFamily="{StaticResource FontAwesome}" Text="{StaticResource FileDownload}" Margin="0,0,10,0" VerticalAlignment="Center" Foreground="White"/>
+                        <TextBlock FontFamily="Consolas" FontSize="13" HorizontalAlignment="Right" Margin="0,0,10,0"
+                               Foreground="White" VerticalAlignment="Center" TextAlignment="Right">
+                            <Run Text="Downloading: "/><Run Text="File1.txt"/> - <Run Text="2MB/145MB" Foreground="Yellow"/>, <Run Text="54%" Foreground="Yellow"/>
+                        </TextBlock>
+                    </StackPanel>
+
+                </DockPanel>
+                
                 
                 <!--Terminal-->
                 <ListView Grid.Row="2" ItemsSource="{Binding ServerLog}" BorderThickness="0" Background="Black" Margin="0,0,0,25">

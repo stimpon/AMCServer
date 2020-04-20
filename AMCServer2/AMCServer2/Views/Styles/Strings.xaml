@@ -16,6 +16,9 @@
     <system:String x:Key="FileAudio">&#xf1c7;</system:String>
     <system:String x:Key="Folder">&#xf07b;</system:String>
     <system:String x:Key="HDD">&#xf0a0;</system:String>
+    <system:String x:Key="Download">&#xf019;</system:String>
+    <system:String x:Key="Lock">&#xf023;</system:String>
+    <system:String x:Key="FileDownload">&#xf56d;</system:String>
     <!--#endregion-->
 
 </ResourceDictionary>
