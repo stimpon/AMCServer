@@ -3,32 +3,25 @@
     /// <summary>
     /// Enum for the information event args
     /// </summary>
-    public enum InformationTypes
+    public enum Responses
     {
         /// <summary>
-        /// Display information
+        /// Information response
         /// </summary>
         Information,
 
         /// <summary>
-        /// returned a warning
-        /// </summary>
-        Warning,
-
-        /// <summary>
-        /// returned an error
+        /// Error response
         /// </summary>
         Error,
-
         /// <summary>
-        /// Proceeded action was successful
+        /// Warning response
         /// </summary>
-        ActionSuccessful,
-
+        Warning,
         /// <summary>
-        /// Proceeded action was not successful
+        /// OK response
         /// </summary>
-        ActionFailed
+        OK
     }
 
     /// <summary>

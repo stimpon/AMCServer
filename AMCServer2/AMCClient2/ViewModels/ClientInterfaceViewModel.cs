@@ -7,6 +7,10 @@
     using System;
     using System.Linq;
     using System.IO;
+    using System.Security;
+    using System.Security.AccessControl;
+    using System.Security.Permissions;
+    using System.Security.Principal;
     #endregion
 
     /// <summary>
@@ -83,8 +87,8 @@
 
             // This is the standard message that shows when the program starts
             ServerLog = new ThreadSafeObservableCollection<LogItem>() {
-                new LogItem() { Content = "AMCClient [Version 1.0.0]", ShowTime = false, Type = InformationTypes.Information } ,
-                new LogItem() { Content = "(c) 2020 Stimpon",          ShowTime = false, Type = InformationTypes.Information } ,
+                new LogItem() { Content = "AMCClient [Version 1.0.0]", ShowTime = false, Type = Responses.Information } ,
+                new LogItem() { Content = "(c) 2020 Stimpon",          ShowTime = false, Type = Responses.Information } ,
             };
 
             #region Create commands
@@ -149,31 +153,46 @@
         /// <param name="path"></param>
         private void SendPathItems(string path)
         {
-            // Persmission error is possible
-            try
+            // Read all directories from the requested path
+            var Folders = Directory.GetDirectories(path);
+            // Read all files from the requested path
+            var Files = Directory.GetFiles(path);
+
+            // Loop through all folders and send them to the server
+            foreach (var Folder in Folders)
             {
-                // Read all directories from the requested path
-                var Folders = Directory.GetDirectories(path);
-                // Read all files from the requested path
-                var Files = Directory.GetFiles(path);
+                // Tells the server if read permissions is allowed
+                bool PermissionsDenied = true;
 
-                // Send navigation OK message
-                IoC.Container.Get<ClientViewModel>().Send($"[NAVOK]{path}");
-
-                // Loop through all folders and send them to the server
-                foreach (var Folder in Folders)
-                    IoC.Container.Get<ClientViewModel>().Send($"[FOLDER]" +
-                        $"{Path.GetFileName(Folder)}");
-                // Loop through all files and send them to the server
-                foreach (var File in Files)
+                try
                 {
-                    FileInfo f = new FileInfo(File);
-                    IoC.Container.Get<ClientViewModel>().Send($"[FILE]" +
-                        $"{f.Name}|{f.Extension}|{f.Length}");
+                    // Test if access is denied
+                    Directory.GetFiles(Folder);
+
+                    // Get the access rules for that folder
+                    var rules = new FileInfo(Folder).GetAccessControl()
+                                                    .GetAccessRules(true,
+                                                                    true,
+                                                                    typeof(SecurityIdentifier));
+                    // Check if read permissions are allowed
+                    if (rules != null)
+                        foreach (FileSystemAccessRule rule in rules)
+                            if((FileSystemRights.Read & rule.FileSystemRights) == FileSystemRights.Read)
+                                if (rule.AccessControlType == AccessControlType.Allow)
+                                    PermissionsDenied = false;
                 }
+                catch { }
+
+                IoC.Container.Get<ClientViewModel>().Send($"[FOLDER]" +
+                    $"{Path.GetFileName(Folder)}|{PermissionsDenied}");
             }
-            // Send back that the navigation failed
-            catch { IoC.Container.Get<ClientViewModel>().Send($"[NAVER]{path}"); }
+            // Loop through all files and send them to the server
+            foreach (var File in Files)
+            {
+                FileInfo f = new FileInfo(File);
+                IoC.Container.Get<ClientViewModel>().Send($"[FILE]" +
+                    $"{f.Name}|{f.Extension}|{f.Length}");
+            }
         }
 
         /// <summary>

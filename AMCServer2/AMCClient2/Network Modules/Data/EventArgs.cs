@@ -20,6 +20,6 @@
         /// <summary>
         /// The type of the message
         /// </summary>
-        public InformationTypes MessageType { get; set; }
+        public Responses MessageType { get; set; }
     }
 }

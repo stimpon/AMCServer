@@ -16,10 +16,6 @@
     /// </summary>
     public class ClientViewModel : BaseViewModel
     {
-
-        /// <summary>
-        /// All of the class's publiv properties
-        /// </summary>
         #region Public Properties
 
         /// <summary>
@@ -33,9 +29,9 @@
         public IPAddress ServerIP       { get; private set; }
 
         /// <summary>
-        /// The server socket
+        /// Endpoint for file transfer
         /// </summary>
-        public Socket ServerConnection  { get; private set; }
+        public EndPoint FileTransferEndpoint { get; private set; }
 
         /// <summary>
         /// Servers packet buffersize
@@ -47,19 +43,19 @@
         /// </summary>
         public ClientStates ClientState { get; private set; }
 
-        /// <summary>
-        /// New information event
-        /// </summary>
-        public EventHandler<InformationEventArgs> ClientInformation;
-
-        /// <summary>
-        /// Fires when data was received from a client
-        /// </summary>
-        public EventHandler<string> DataReceived;
-
         #endregion
 
         #region Private Members
+
+        /// <summary>
+        /// The server socket
+        /// </summary>
+        private Socket ServerConnection;
+
+        /// <summary>
+        /// Socket used for file transfer
+        /// </summary>
+        private Socket FileSenderSocket;
 
         /// <summary>
         /// This programs private key
@@ -88,6 +84,20 @@
 
         #endregion
 
+        #region Events
+
+        /// <summary>
+        /// New information event
+        /// </summary>
+        public EventHandler<InformationEventArgs> ClientInformation;
+
+        /// <summary>
+        /// Fires when data was received from a client
+        /// </summary>
+        public EventHandler<string> DataReceived;
+
+        #endregion
+
         /// <summary>
         /// Default constructor
         /// </summary>
@@ -107,24 +117,7 @@
             Initialize();
         }
 
-
-        #region Functions
-
-        /// <summary>
-        /// Initialize the server
-        /// </summary>
-        public void Initialize()
-        {
-            // Setup server buffer
-            GlobalBufferSize = 10240;
-            GlobalBuffer = new byte[GlobalBufferSize];
-
-            Decryptor = new RSACryptoServiceProvider(2048);
-            Encryptor = new RSACryptoServiceProvider(2048);
-
-            // Set serverstate to offline
-            ClientState = ClientStates.Disconnected;
-        }
+        #region Public functions
 
         /// <summary>
         /// Connect to the server
@@ -133,7 +126,7 @@
         {
             if(ClientState == ClientStates.Connected)
             {
-                OnClientInformation("You are already connected to the server", InformationTypes.Warning);
+                OnClientInformation("You are already connected to the server", Responses.Warning);
                 return;
             }
 
@@ -145,7 +138,6 @@
 
             // Begin connect to the server
             ServerConnection.BeginConnect(new IPEndPoint(ServerIP, ServerPort), new AsyncCallback(ConnectCallback), null);
-
         }
 
         /// <summary>
@@ -187,10 +179,65 @@
         }
 
         /// <summary>
+        /// Sends a file to the server
+        /// </summary>
+        /// <param name="FilePath"></param>
+        public void SendFile(string FilePath)
+        {
+            if (ClientState != ClientStates.Connected) return;
+
+            FileSenderSocket.BeginConnect(FileTransferEndpoint, 
+                                            new AsyncCallback(FileSenderConnectCallback),
+                                            null);
+        }
+
+        private void FileSenderConnectCallback(IAsyncResult ar)
+        {
+            try
+            {
+                FileSenderSocket.EndConnect(ar);
+                FileSenderSocket.Send(Encryptor.Encrypt(Encoding.Default.GetBytes("<vf>"), true));
+
+                OnClientInformation("Sending file to server", Responses.Information);
+            }
+            catch
+            {
+                OnClientInformation("Server rejected the file transfer", Responses.Error);
+            }
+        }
+
+        #endregion
+
+        #region Private functins
+
+        /// <summary>
+        /// Initialize the server
+        /// </summary>
+        private void Initialize()
+        {
+            // Setup server buffer
+            GlobalBufferSize = 10240;
+            GlobalBuffer = new byte[GlobalBufferSize];
+
+            Decryptor = new RSACryptoServiceProvider(2048);
+            Encryptor = new RSACryptoServiceProvider(2048);
+
+            FileTransferEndpoint = new IPEndPoint(ServerIP, 401);
+            FileSenderSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+            // Set serverstate to offline
+            ClientState = ClientStates.Disconnected;
+        }
+
+        #endregion
+
+        #region Event functions
+
+        /// <summary>
         /// Fires when the client has new information
         /// </summary>
         /// <param name="Data"></param>
-        protected virtual void OnClientInformation(string Information, InformationTypes type)
+        protected virtual void OnClientInformation(string Information, Responses type)
         {
             // Check so the event is not null
             if (ClientInformation != null)
@@ -209,8 +256,7 @@
 
         #endregion
 
-
-        #region Socket Callbacks
+        #region ClientSocket
 
         /// <summary>
         /// Connect callback
@@ -238,20 +284,26 @@
                 // Send RSA key
                 ServerConnection.Send(Decryptor.ExportRSAPublicKey());
 
-                OnClientInformation($"Connection to the server was established", InformationTypes.ActionSuccessful);
+                OnClientInformation($"Connection to the server was established", Responses.OK);
 
                 // Change the state
                 ClientState = ClientStates.Connected;
 
+                // Prepare file transfer socket
+                FileSenderSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+                // Begin receiving data from the server
                 ServerConnection.BeginReceive(GlobalBuffer, 0, GlobalBuffer.Length,
                                               SocketFlags.None, 
                                               new AsyncCallback(ReceiveCallback),
                                               ServerConnection);
+
+                SendFile("");
             }
             catch (Exception ex)
             {
                 // Call the event
-                OnClientInformation($"Connection failed, error message: {ex.Message}", InformationTypes.Error);
+                OnClientInformation($"Connection failed, error message: {ex.Message}", Responses.Error);
 
                 // Change back the state
                 ClientState = ClientStates.Disconnected;
@@ -281,7 +333,7 @@
                 s.Close();
 
                 // Call the infromation event
-                OnClientInformation("You were disconnected from the server", InformationTypes.Error);
+                OnClientInformation("You were disconnected from the server", Responses.Error);
 
                 // Set the connection state to disconnected
                 ClientState = ClientStates.Disconnected;

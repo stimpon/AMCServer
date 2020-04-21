@@ -30,6 +30,6 @@
         /// <summary>
         /// Type of log
         /// </summary>
-        public InformationTypes Type   { get; set; }
+        public Responses Type   { get; set; }
     }
 }
