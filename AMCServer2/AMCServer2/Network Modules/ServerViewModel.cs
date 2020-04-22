@@ -604,18 +604,18 @@
             try
             {
                 // Create new file decryptor
-                vm.FileDecryptor = new AesCryptoServiceProvider();
-                vm.FileDecryptor.KeySize = 128;
+                AesCryptoServiceProvider FileDecryptor = new AesCryptoServiceProvider();
+                FileDecryptor.KeySize = 128;
 
                 byte[] Data = new byte[256];
 
                 // Receive 128 bin AES key
                 vm.ClientConnection.Receive(Data);
-                vm.FileDecryptor.Key = ActiveConnections.First(c => c.ID == vm.ID).Decryptor.Decrypt(Data, true);
+                FileDecryptor.Key = ActiveConnections.First(c => c.ID == vm.ID).Decryptor.Decrypt(Data, true);
 
                 // Receive IV
                 vm.ClientConnection.Receive(Data);
-                vm.FileDecryptor.IV = ActiveConnections.First(c => c.ID == vm.ID).Decryptor.Decrypt(Data, true);
+                FileDecryptor.IV = ActiveConnections.First(c => c.ID == vm.ID).Decryptor.Decrypt(Data, true);
 
                 // Receive filename
                 vm.ClientConnection.Receive(Data);
@@ -625,9 +625,19 @@
                 vm.ClientConnection.Receive(Data);
                 long FileSize = long.Parse(Encoding.Default.GetString(ActiveConnections.First(c => c.ID == vm.ID).Decryptor.Decrypt(Data, true)));
 
+                // Create file stream
+                FileStream _fs = new FileStream($"{DownloadingDirectory}\\{FileName}", FileMode.Append, FileAccess.Write);
+
+                // Create cryptoStream
+                CryptoStream Stream = new CryptoStream(_fs, FileDecryptor.CreateDecryptor(), CryptoStreamMode.Write);
+
                 // Begin receiving file 
                 vm.ClientConnection.BeginReceive(DownloadingBuffer, 0, DownloadingBuffer.Length, SocketFlags.None,
-                    new AsyncCallback(DownloadSocketReceiveCallback), new DownloadInformationEventArgs() { Sender = vm, FileName = FileName, FileSize = FileSize } );
+                    new AsyncCallback(DownloadSocketReceiveCallback), new FileDecryptorHandler() { Sender   = vm, 
+                                                                                                   FileName = FileName, 
+                                                                                                   FileSize = FileSize,
+                                                                                                   Stream   = _fs, 
+                                                                                                   CryptoStream = Stream} );
             }
 
             // Close the connection if it didn't work
@@ -646,7 +656,7 @@
         private void DownloadSocketReceiveCallback(IAsyncResult ar)
         {
             // Get the socket 
-            DownloadInformationEventArgs Args = ar.AsyncState as DownloadInformationEventArgs;
+            FileDecryptorHandler Args = ar.AsyncState as FileDecryptorHandler;
 
             // Get the amount of bytes received
             int Rec = Args.Sender.ClientConnection.EndReceive(ar);
@@ -654,35 +664,28 @@
             // Check if any bytes where sent
             if (Rec > 0)
             {
-                // Create new buffer and resize it to the correct size
+                // Create new array from the received bytes
                 byte[] ReceivedBytes = DownloadingBuffer;
+                // Resize to the correct length
                 Array.Resize(ref ReceivedBytes, Rec);
 
-                // Create decryptor
-                ICryptoTransform Crypto = Args.Sender.FileDecryptor.CreateDecryptor();
-
-                // Open the file
-                using (MemoryStream MemStream = new MemoryStream(ReceivedBytes))
-                using (FileStream _fs = new FileStream($"{DownloadingDirectory}\\{Args.FileName}", FileMode.Append, FileAccess.Write))
-                using (CryptoStream CStream = new CryptoStream(_fs, Crypto, CryptoStreamMode.Write))
-                {
-                    // Encrypt and write the bytes to the file
-                    CStream.Write(MemStream.ToArray(), 0, MemStream.ToArray().Length);
-                    CStream.FlushFinalBlock();
-
-                    // Update size
-                    Args.ActualFileSize = _fs.Length;
-                }
-
-
+                // Write the received bytes to the cryptostream
+                Args.CryptoStream.Write(ReceivedBytes, 0, ReceivedBytes.Length);
             }
 
             if (Args.ActualFileSize == Args.FileSize)
-                OnServerInformation("File downloaded", Responses.OK);
+            {
+                OnServerInformation($"{Args.FileName} has been downloaded", Responses.OK);
+
+                // Close the cryptostream
+                Args.CryptoStream.Dispose();
+                // Close the filestream
+                Args.Stream.Dispose();
+            }
             else
             // Begin receiving file 
-            Args.Sender.ClientConnection.BeginReceive(DownloadingBuffer, 0, DownloadingBuffer.Length, SocketFlags.None,
-                new AsyncCallback(DownloadSocketReceiveCallback), Args);
+                Args.Sender.ClientConnection.BeginReceive(DownloadingBuffer, 0, DownloadingBuffer.Length, SocketFlags.None,
+                                                          new AsyncCallback(DownloadSocketReceiveCallback), Args);
         }
 
         #endregion

@@ -234,7 +234,7 @@
         /// </summary>
         /// <param name="FilePath"></param>
         /// <param name="PacketSize"></param>
-        private void SendFile(string FilePath, int PacketSize = 256)
+        private void SendFile(string FilePath, int PacketSize = 1024)
         {
             // Open the file in read mode
             FileStream _fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read);
@@ -242,11 +242,12 @@
             // Create encryptor
             ICryptoTransform Crypto = FileEncryptor.CreateEncryptor();
 
-            // Keep reading unitil the end of the file is hit
-            while(_fs.Position < _fs.Length)
+            using (MemoryStream MemStream = new MemoryStream())
+            using (CryptoStream CStream = new CryptoStream(MemStream, Crypto, CryptoStreamMode.Write))
             {
-                using (MemoryStream MemStream = new MemoryStream())
-                using (CryptoStream CStream = new CryptoStream(MemStream, Crypto, CryptoStreamMode.Write))
+                // Keep copying bytes to the crypto stream until the end
+                // of the file is hit
+                while(_fs.Position < _fs.Length)
                 {
                     // Read a block of data from the file
                     byte[] DataBlock = new byte[PacketSize];
@@ -257,12 +258,16 @@
 
                     // Write data to the stream
                     CStream.Write(DataBlock, 0, DataBlock.Length);
-                    CStream.FlushFinalBlock();
 
                     // Send the encrypted file bytes
-                    FileSenderSocket.Send(MemStream.ToArray());
+                    FileSenderSocket.Send(MemStream.ToArray()[new Range(0, read)]);
+
+                    // Reset position
+                    MemStream.Position = 0;
                 }
 
+                // Flush final block
+                CStream.FlushFinalBlock();
             }
 
             // Clear key and IV from memory as it is not needed anymore
@@ -491,7 +496,7 @@
             }
 
             // Server rejected the file transfer
-            catch(Exception ex) { OnClientInformation("Server rejected the file transfer", Responses.Error); }
+            catch { OnClientInformation("Server rejected the file transfer", Responses.Error); }
         }
 
         #endregion

@@ -149,6 +149,8 @@
                     case ":getdrives":
                         // Prepare the explorer
                         ExplorerItems.Clear();
+                        // Clear current path
+                        CurrentPathOnClientPC = String.Empty;
                         // If the message was sent successfuly, clear the explorer to prepare it for the incoming data
                         IoC.Container.Get<ServerViewModel>().Send("[DRIVES]");
                         break;
