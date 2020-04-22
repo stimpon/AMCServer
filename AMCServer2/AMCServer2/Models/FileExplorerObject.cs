@@ -45,18 +45,7 @@
             {               
                 if (Type != ExplorerItemTypes.File)
                     return string.Empty;
-
-                // Formats the string
-                if (Size <= 1000)
-                    return Size.ToString() + " b";
-                else if (Size <= 500000)
-                    return ((float)Size / 1000).ToString("0.0") + " kb";
-                else if (Size <= 1000000000)
-                    return ((float)Size / 1000000).ToString("0.00") + " mb";
-                else if (Size <= 1000000000000)
-                    return ((float)Size / 1000000000).ToString("0.00") + " gb";
-
-                return null;
+                return StringFormatingHelpers.BytesToSizeString(Size);
             } 
         }
 

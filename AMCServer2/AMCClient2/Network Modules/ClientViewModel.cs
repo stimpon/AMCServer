@@ -5,6 +5,8 @@
     /// </summary>
     #region Namespaces
     using System;
+    using System.IO;
+    using System.Linq;
     using System.Net;
     using System.Net.Sockets;
     using System.Security.Cryptography;
@@ -12,7 +14,8 @@
     #endregion
 
     /// <summary>
-    /// Client backend ViewModel
+    /// Client backend class that handles all communication to the 
+    /// AMCServer
     /// </summary>
     public class ClientViewModel : BaseViewModel
     {
@@ -66,6 +69,11 @@
         /// Servers public key
         /// </summary>
         private RSACryptoServiceProvider Decryptor;
+
+        /// <summary>
+        /// Encryprot used to encrypt files
+        /// </summary>
+        private AesCryptoServiceProvider FileEncryptor;
 
         /// <summary>
         /// The server buffer
@@ -182,28 +190,21 @@
         /// Sends a file to the server
         /// </summary>
         /// <param name="FilePath"></param>
-        public void SendFile(string FilePath)
+        public void BeginSendFile(string FilePath)
         {
+            // Check if the client is conneted to the server
             if (ClientState != ClientStates.Connected) return;
 
+            // Check if the file exists
+            if (!File.Exists(FilePath)) return;
+
+            // Create the socket
+            FileSenderSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+            // Try to connect to the server's file transfer socket
             FileSenderSocket.BeginConnect(FileTransferEndpoint, 
                                             new AsyncCallback(FileSenderConnectCallback),
-                                            null);
-        }
-
-        private void FileSenderConnectCallback(IAsyncResult ar)
-        {
-            try
-            {
-                FileSenderSocket.EndConnect(ar);
-                FileSenderSocket.Send(Encryptor.Encrypt(Encoding.Default.GetBytes("<vf>"), true));
-
-                OnClientInformation("Sending file to server", Responses.Information);
-            }
-            catch
-            {
-                OnClientInformation("Server rejected the file transfer", Responses.Error);
-            }
+                                            FilePath);
         }
 
         #endregion
@@ -223,10 +224,56 @@
             Encryptor = new RSACryptoServiceProvider(2048);
 
             FileTransferEndpoint = new IPEndPoint(ServerIP, 401);
-            FileSenderSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
             // Set serverstate to offline
             ClientState = ClientStates.Disconnected;
+        }
+
+        /// <summary>
+        /// Sends a file to the server
+        /// </summary>
+        /// <param name="FilePath"></param>
+        /// <param name="PacketSize"></param>
+        private void SendFile(string FilePath, int PacketSize = 256)
+        {
+            // Open the file in read mode
+            FileStream _fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read);
+
+            // Create encryptor
+            ICryptoTransform Crypto = FileEncryptor.CreateEncryptor();
+
+            // Keep reading unitil the end of the file is hit
+            while(_fs.Position < _fs.Length)
+            {
+                using (MemoryStream MemStream = new MemoryStream())
+                using (CryptoStream CStream = new CryptoStream(MemStream, Crypto, CryptoStreamMode.Write))
+                {
+                    // Read a block of data from the file
+                    byte[] DataBlock = new byte[PacketSize];
+                    int read = _fs.Read(DataBlock, 0, DataBlock.Length);
+
+                    // Resize to correct size
+                    Array.Resize(ref DataBlock, read);
+
+                    // Write data to the stream
+                    CStream.Write(DataBlock, 0, DataBlock.Length);
+                    CStream.FlushFinalBlock();
+
+                    // Send the encrypted file bytes
+                    FileSenderSocket.Send(MemStream.ToArray());
+                }
+
+            }
+
+            // Clear key and IV from memory as it is not needed anymore
+            FileEncryptor.Key.ToList().Clear();
+            FileEncryptor.IV.ToList().Clear();
+
+            // Notify
+            OnClientInformation("File sent to the server", Responses.Information);
+
+            // Close the FileSender socket
+            FileSenderSocket.Close();
         }
 
         #endregion
@@ -256,7 +303,7 @@
 
         #endregion
 
-        #region ClientSocket
+        #region ClientSocket Callbacks
 
         /// <summary>
         /// Connect callback
@@ -297,8 +344,6 @@
                                               SocketFlags.None, 
                                               new AsyncCallback(ReceiveCallback),
                                               ServerConnection);
-
-                SendFile("");
             }
             catch (Exception ex)
             {
@@ -398,6 +443,55 @@
                                           SocketFlags.None,
                                           new AsyncCallback(ReceiveCallback),
                                           s);
+        }
+
+        #endregion
+
+        #region FileSender Callbacks
+
+        /// <summary>
+        /// When connected to the server and file is gonna be sent
+        /// </summary>
+        /// <param name="ar"></param>
+        private void FileSenderConnectCallback(IAsyncResult ar)
+        {
+            try
+            {
+                // Endconnect
+                FileSenderSocket.EndConnect(ar);
+
+                // Create new Aes provider with new values
+                FileEncryptor = new AesCryptoServiceProvider();
+                FileEncryptor.KeySize = 128;
+
+                // Create random byte generator
+                using(var RNG = RandomNumberGenerator.Create())
+                {
+                    RNG.GetBytes(FileEncryptor.Key);
+                    RNG.GetBytes(FileEncryptor.IV);
+                }
+
+                // Send randomly generated 128 bit AES key
+                FileSenderSocket.Send(Encryptor.Encrypt(FileEncryptor.Key, true));
+
+                // Send randomly generated IV
+                FileSenderSocket.Send(Encryptor.Encrypt(FileEncryptor.IV, true));
+
+                // Send filename
+                FileSenderSocket.Send(Encryptor.Encrypt(Encoding.Default.GetBytes((new FileInfo((string)ar.AsyncState)).Name), true));
+
+                // Send filesize
+                FileSenderSocket.Send(Encryptor.Encrypt(Encoding.Default.GetBytes((new FileInfo((string)ar.AsyncState).Length.ToString())), true));
+
+                // Information response
+                OnClientInformation("Sending file to server", Responses.Information);
+
+                // Send the file
+                SendFile((string)ar.AsyncState);
+            }
+
+            // Server rejected the file transfer
+            catch(Exception ex) { OnClientInformation("Server rejected the file transfer", Responses.Error); }
         }
 
         #endregion

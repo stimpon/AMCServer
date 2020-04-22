@@ -105,7 +105,6 @@
             // Subscribe to server events
             IoC.Container.Get<ServerViewModel>().NewServerInformation += OnServerInformation;
             IoC.Container.Get<ServerViewModel>().NewDataReceived      += OnDataReceived;
-            IoC.Container.Get<ServerViewModel>().FileBytesReceived    += OnFileBytesReceived;
 
         }
 
@@ -254,16 +253,6 @@
         }
 
         /// <summary>
-        /// When bytes is received from the DownloadingSocket
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void OnFileBytesReceived(object sender, byte[] e)
-        {
-
-        }
-
-        /// <summary>
         /// Actions for the commands
         /// </summary>
         #region Command actions
@@ -319,7 +308,12 @@
         /// <param name="o"></param>
         private void DownloadEvent(object o)
         {
+            // Get the clicked file
             var Item = o as FileExplorerObject;
+
+            // Begin receiving the file
+            IoC.Container.Get<ServerViewModel>().ReceiveFile(IoC.Container.Get<ServerViewModel>().BoundClient,
+                Environment.GetFolderPath(Environment.SpecialFolder.Desktop));
 
             // Send downloading request
             IoC.Container.Get<ServerViewModel>().Send($"[DOWNLOAD]{CurrentPathOnClientPC}\\{Item.Name}");

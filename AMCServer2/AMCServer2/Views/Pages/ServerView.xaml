@@ -75,12 +75,15 @@
                                                                Margin="10,0,5,0" FontSize="12"
                                                                Foreground="White" Width="60" TextAlignment="Right"/>
 
-                                                    <Button Visibility="{Binding CanBeDownLoaded, Converter={local:BoolToVisibilityConverter}}">
+                                                    <Button Visibility="{Binding CanBeDownLoaded, Converter={local:BoolToVisibilityConverter}}"
+                                                            Command="{Binding ElementName=LvExplorer, Path=DataContext.DownloadFileClick}"
+                                                            CommandParameter="{Binding}">
                                                         <Button.Template>
                                                             <ControlTemplate>
                                                                 <Border BorderThickness="0" Width="50">
                                                                     <TextBlock FontFamily="{StaticResource FontAwesome}" Text="{StaticResource Download}" FontSize="22"                                                                           
-                                                                               HorizontalAlignment="Right" Margin="0" Foreground="{StaticResource SolidColor_Green}"/>
+                                                                               HorizontalAlignment="Right" Margin="0" Foreground="{StaticResource SolidColor_Green}"
+                                                                               />
                                                                 </Border>
                                                             </ControlTemplate>
                                                         </Button.Template>
@@ -156,14 +159,6 @@
                     <TextBlock VerticalAlignment="Center" Foreground="White" FontFamily="Consolas" FontSize="13" Margin="10,0,0,0">
                         <Run Text="| Bound client: "/><Run Text="{Binding ServerViewModel.BoundClient, Source={x:Static local:Locator.Instance}, Mode=OneWay}"/>
                     </TextBlock>
-
-                    <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-                        <TextBlock FontSize="18" FontFamily="{StaticResource FontAwesome}" Text="{StaticResource FileDownload}" Margin="0,0,10,0" VerticalAlignment="Center" Foreground="White"/>
-                        <TextBlock FontFamily="Consolas" FontSize="13" HorizontalAlignment="Right" Margin="0,0,10,0"
-                               Foreground="White" VerticalAlignment="Center" TextAlignment="Right">
-                            <Run Text="Downloading: "/><Run Text="File1.txt"/> - <Run Text="2MB/145MB" Foreground="Yellow"/>, <Run Text="54%" Foreground="Yellow"/>
-                        </TextBlock>
-                    </StackPanel>
 
                 </DockPanel>
                 

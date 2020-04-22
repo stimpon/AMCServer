@@ -80,5 +80,9 @@
         /// The servers private key
         /// </summary>
         public RSACryptoServiceProvider Decryptor { get; set; }
+        /// <summary>
+        /// Created and used when a file is being downloaded
+        /// </summary>
+        public AesCryptoServiceProvider FileDecryptor { get; set; }
     }
 }

@@ -196,6 +196,22 @@
         }
 
         /// <summary>
+        /// Server want a file
+        /// </summary>
+        /// <param name="FilePath"></param>
+        private void SendFileRequest(string FilePath)
+        {
+            // Check if file exists
+            if (!File.Exists(FilePath)) return;
+
+            // Get infor about the file
+            FileInfo req_file = new FileInfo(FilePath);
+
+            // SBegin sending the file
+            IoC.Container.Get<ClientViewModel>().BeginSendFile(FilePath);
+        }
+
+        /// <summary>
         /// When a message is sent from the server, print it to the terminal
         /// </summary>
         /// <param name="sender"></param>
@@ -222,6 +238,8 @@
                 SendDrivesToServer();
             if (Data.StartsWith("[NAV]"))
                 SendPathItems(Data.Substring(5));
+            if (Data.StartsWith("[DOWNLOAD]"))
+                SendFileRequest(Data.Substring(10));
         }
 
         /// <summary>

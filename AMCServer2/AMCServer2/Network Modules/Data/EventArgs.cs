@@ -1,6 +1,7 @@
 ﻿namespace AMCServer2
 {
     using System;
+    using System.Net.Sockets;
 
     /// <summary>
     /// EventArgs that store messages from the server
@@ -42,5 +43,31 @@
         /// Data received from the client
         /// </summary>
         public string Data           { get; set; }
+    }
+
+    /// <summary>
+    /// Carries information about a download
+    /// </summary>
+    public class DownloadInformationEventArgs : EventArgs
+    {
+        /// <summary>
+        /// Name of the file being downloaded
+        /// </summary>
+        public string FileName { get; set; }
+
+        /// <summary>
+        /// Size of the file in bytes
+        /// </summary>
+        public long FileSize { get; set; }
+
+        /// <summary>
+        /// The actual size of the file in bytes
+        /// </summary>
+        public long ActualFileSize { get; set; }
+
+        /// <summary>
+        /// Sender
+        /// </summary>
+        public ClientViewModel Sender {get; set;}
     }
 }

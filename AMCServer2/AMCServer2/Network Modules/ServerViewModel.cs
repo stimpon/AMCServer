@@ -12,10 +12,11 @@
     using System.Security.Cryptography;
     using System.Linq;
     using System.Collections.ObjectModel;
+    using System.IO;
     #endregion
 
     /// <summary>
-    /// This is the server backend class
+    /// Crypto server backend that handles AMCClients
     /// </summary>
     public class ServerViewModel : BaseViewModel
     {
@@ -77,19 +78,27 @@
         /// </summary>
         private Socket ServerSocket;
 
+        /// <summary>
+        /// Path where to save downloaded files
+        /// </summary>
+        private string DownloadingDirectory { get; set; }
+
         #region Downloading socket members
         /// <summary>
         /// Socket used for transfering files
         /// </summary>
         private Socket FileTransferSocket;
+
         /// <summary>
         /// Buffer for the DownloadingSocket
         /// </summary>
         private byte[] DownloadingBuffer;
+
         /// <summary>
         /// Endpoint for the downloading socket
         /// </summary>
         private EndPoint DownloadingEndPoint;
+
         #endregion
 
         #endregion
@@ -105,11 +114,6 @@
         /// Fires when data was received from a client
         /// </summary>
         public EventHandler<ClientInformationEventArgs>  NewDataReceived;
-
-        /// <summary>
-        /// Fires when data from the downloading socket is received
-        /// </summary>
-        public EventHandler<byte[]> FileBytesReceived;
 
         #endregion
 
@@ -170,8 +174,6 @@
 
             // Call the event
             OnServerInformation("Server is now running", Responses.OK);
-
-            ReceiveFile(0);
         }
 
         /// <summary>
@@ -294,13 +296,22 @@
         /// client can send a file to the server
         /// </summary>
         /// <param name="ClientID">Client to receive the file from</param>
-        public void ReceiveFile(int ClientID)
+        /// <param name="Path">Path where to save the file</param>
+        public void ReceiveFile(int ClientID, string Path)
         {
             // Check if it exist e client with the specified ID
             if (ActiveConnections.Select(c => c.ID).Contains(ClientID))
+            {
+                // Check if choosed path exists
+                if (!Directory.Exists(Path)) return;
+
+                // Set the path
+                DownloadingDirectory = Path;
+
                 // Begin accepting, this will only accept 1 
                 FileTransferSocket.BeginAccept(new AsyncCallback(DownloadAcceptCallback),
                                                ClientID);
+            }
             else
                 OnServerInformation($"The specified client [{ClientID}] does not exist", Responses.Error);
         }
@@ -336,7 +347,7 @@
             FileTransferSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
             // Create a 10mb buffer
-            DownloadingBuffer = new byte[10000000];
+            DownloadingBuffer = new byte[25600000];
 
             // Create encpoint for the downloading socket
             DownloadingEndPoint = new IPEndPoint(IPAddress.Any, 401);
@@ -371,16 +382,8 @@
             NewDataReceived(this, new ClientInformationEventArgs() { Client = Client, Data = Data, InformationTimeStamp = DateTime.Now.ToString() });
         }
 
-        /// <summary>
-        /// Event callback
-        /// </summary>
-        /// <param name="bytes"></param>
-        protected virtual void OnFileBytesReceived(byte[] bytes)
-        {
-            FileBytesReceived?.Invoke(this, bytes);
-        }
-
         #endregion
+
 
         #region ServerSocket
 
@@ -588,36 +591,49 @@
         /// <param name="ar"></param>
         private void DownloadAcceptCallback(IAsyncResult ar)
         {
-            // Get the socket from the IAsyncResult
-            Socket s = FileTransferSocket.EndAccept(ar);
-            int id = (int)ar.AsyncState;
+            // Create new temp client vm
+            ClientViewModel vm = new ClientViewModel() { 
+                                 ClientConnection = FileTransferSocket.EndAccept(ar), 
+                                 ID = (int)ar.AsyncState };
 
-            /* To verify that it is the bound client that
-             * actually connectet, it needs to send som verification
-             * bytes that the server will attempt to decrypt with the
-             * public key generated for the bound client.
+            /* If the server fails to decrypt the received AES
+             * Key and IV, then we know that an invalid connection
+             * was established so then close the socket
              */
 
             try
             {
-                // Receive the verification bytes
-                byte[] ver_bytes = new byte[4];
-                s.Receive(ver_bytes);
+                // Create new file decryptor
+                vm.FileDecryptor = new AesCryptoServiceProvider();
+                vm.FileDecryptor.KeySize = 128;
 
-                // Attempt to decrypt
-                _ = ActiveConnections.First(c => c.ID == id).Decryptor.Decrypt(ver_bytes, true);
+                byte[] Data = new byte[256];
 
-                // Begin receiving file
-                s.BeginReceive(DownloadingBuffer, 0, DownloadingBuffer.Length, SocketFlags.None,
-                    new AsyncCallback(DownloadSocketReceiveCallback), s);
+                // Receive 128 bin AES key
+                vm.ClientConnection.Receive(Data);
+                vm.FileDecryptor.Key = ActiveConnections.First(c => c.ID == vm.ID).Decryptor.Decrypt(Data, true);
 
-                OnServerInformation("Downloading file", Responses.OK);
+                // Receive IV
+                vm.ClientConnection.Receive(Data);
+                vm.FileDecryptor.IV = ActiveConnections.First(c => c.ID == vm.ID).Decryptor.Decrypt(Data, true);
+
+                // Receive filename
+                vm.ClientConnection.Receive(Data);
+                string FileName = Encoding.Default.GetString(ActiveConnections.First(c => c.ID == vm.ID).Decryptor.Decrypt(Data, true));
+
+                // Receive filesize
+                vm.ClientConnection.Receive(Data);
+                long FileSize = long.Parse(Encoding.Default.GetString(ActiveConnections.First(c => c.ID == vm.ID).Decryptor.Decrypt(Data, true)));
+
+                // Begin receiving file 
+                vm.ClientConnection.BeginReceive(DownloadingBuffer, 0, DownloadingBuffer.Length, SocketFlags.None,
+                    new AsyncCallback(DownloadSocketReceiveCallback), new DownloadInformationEventArgs() { Sender = vm, FileName = FileName, FileSize = FileSize } );
             }
 
             // Close the connection if it didn't work
-            catch 
+            catch
             { 
-                s.Close(); 
+                vm.ClientConnection.Close(); 
                 OnServerInformation("Invalid connection to the filetransfer socket was established, server closed the connection", Responses.Warning);
             }
         }
@@ -630,37 +646,43 @@
         private void DownloadSocketReceiveCallback(IAsyncResult ar)
         {
             // Get the socket 
-            Socket s = ar.AsyncState as Socket;
-
-            // Hokds the amount of bytes received
-            int Rec = 0;
+            DownloadInformationEventArgs Args = ar.AsyncState as DownloadInformationEventArgs;
 
             // Get the amount of bytes received
-            try { Rec = s.EndReceive(ar); }
-            
-            // The socket was closed
-            catch
-            {
-                return;
-            }
+            int Rec = Args.Sender.ClientConnection.EndReceive(ar);
 
             // Check if any bytes where sent
-            if(Rec > 0)
+            if (Rec > 0)
             {
                 // Create new buffer and resize it to the correct size
                 byte[] ReceivedBytes = DownloadingBuffer;
                 Array.Resize(ref ReceivedBytes, Rec);
 
-                // Loop through all of the packets in the buffer (We know that the packets will be 256 bytes long)
-                for (int PacketStart = 0; PacketStart < Rec; PacketStart += 256)
+                // Create decryptor
+                ICryptoTransform Crypto = Args.Sender.FileDecryptor.CreateDecryptor();
+
+                // Open the file
+                using (MemoryStream MemStream = new MemoryStream(ReceivedBytes))
+                using (FileStream _fs = new FileStream($"{DownloadingDirectory}\\{Args.FileName}", FileMode.Append, FileAccess.Write))
+                using (CryptoStream CStream = new CryptoStream(_fs, Crypto, CryptoStreamMode.Write))
                 {
-                    // Get the current packet from the buffer
-                    byte[] _packet = ReceivedBytes[new Range(PacketStart, PacketStart + 256)];
-                    
-                    OnFileBytesReceived(ActiveConnections.First(c => c.ID == BoundClient).Decryptor.Decrypt(_packet, true));
+                    // Encrypt and write the bytes to the file
+                    CStream.Write(MemStream.ToArray(), 0, MemStream.ToArray().Length);
+                    CStream.FlushFinalBlock();
+
+                    // Update size
+                    Args.ActualFileSize = _fs.Length;
                 }
+
+
             }
 
+            if (Args.ActualFileSize == Args.FileSize)
+                OnServerInformation("File downloaded", Responses.OK);
+            else
+            // Begin receiving file 
+            Args.Sender.ClientConnection.BeginReceive(DownloadingBuffer, 0, DownloadingBuffer.Length, SocketFlags.None,
+                new AsyncCallback(DownloadSocketReceiveCallback), Args);
         }
 
         #endregion
