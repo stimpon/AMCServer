@@ -42,6 +42,27 @@
 
         #endregion
 
+        #region Current download properties
+
+        /// <summary>
+        /// Name of the file
+        /// </summary>
+        public string FileName { get; set; }
+        /// <summary>
+        /// Size of the file
+        /// </summary>
+        public decimal Size { get; set; } = 1;
+        /// <summary>
+        /// Downloaded bytes
+        /// </summary>
+        public decimal ActualSize { get; set; } = 0;
+        /// <summary>
+        /// String for the View
+        /// </summary>
+        public string ProgresString { get; set; }
+
+        #endregion
+
         /// <summary>
         /// This is the serverlog that will be displayed in the server console
         /// </summary>
@@ -51,6 +72,7 @@
         /// These are the items that will be displayed in the explorer
         /// </summary>
         public ThreadSafeObservableCollection<FileExplorerObject> ExplorerItems { get; set; }
+
         /// <summary>
         /// The current path in the explorer
         /// </summary>
@@ -70,7 +92,7 @@
         {
             if (ProgramState.IsRunning)
                 // Call the Init method when a new instance of this VM is created
-                Init();
+                Initialize();
         }
 
         #region Functions
@@ -79,7 +101,7 @@
         /// First function that will be called when a new instance
         /// of this ViewModel is created
         /// </summary>
-        private void Init()
+        private void Initialize()
         {
             // Set the accessable ViewModel to this class
             VM = this;
@@ -105,6 +127,7 @@
             // Subscribe to server events
             IoC.Container.Get<ServerViewModel>().NewServerInformation += OnServerInformation;
             IoC.Container.Get<ServerViewModel>().NewDataReceived      += OnDataReceived;
+            IoC.Container.Get<ServerViewModel>().DownloadInformation  += OnDownloadInformation;
 
         }
 
@@ -252,6 +275,23 @@
             }
 
             #endregion
+        }
+
+        /// <summary>
+        /// When new information about a download is available
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void OnDownloadInformation(object sender, FileDownloadInformationEventArgs e)
+        {
+            FileName   = e.FileName;
+            Size       = e.FileSize;
+            ActualSize = e.ActualFileSize;
+
+            string SizeString       = StringFormatingHelpers.BytesToSizeString(Size);
+            string ActualSizeString = StringFormatingHelpers.BytesToSizeString(ActualSize);
+
+            ProgresString = $"{ActualSizeString}/{SizeString}";
         }
 
         /// <summary>

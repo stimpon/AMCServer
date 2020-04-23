@@ -108,12 +108,17 @@
         /// <summary>
         /// Fires when the server has new information
         /// </summary>
-        public EventHandler<InformationEventArgs> NewServerInformation;
+        public EventHandler<InformationEventArgs>             NewServerInformation;
 
         /// <summary>
         /// Fires when data was received from a client
         /// </summary>
-        public EventHandler<ClientInformationEventArgs>  NewDataReceived;
+        public EventHandler<ClientInformationEventArgs>       NewDataReceived;
+
+        /// <summary>
+        /// Fires when bytes to a file that is being downloaded is received
+        /// </summary>
+        public EventHandler<FileDownloadInformationEventArgs> DownloadInformation;
 
         #endregion
 
@@ -347,7 +352,7 @@
             FileTransferSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
             // Create a 10mb buffer
-            DownloadingBuffer = new byte[25600000];
+            DownloadingBuffer = new byte[10400];
 
             // Create encpoint for the downloading socket
             DownloadingEndPoint = new IPEndPoint(IPAddress.Any, 401);
@@ -380,6 +385,17 @@
         {
             // Fire the event
             NewDataReceived(this, new ClientInformationEventArgs() { Client = Client, Data = Data, InformationTimeStamp = DateTime.Now.ToString() });
+        }
+
+        /// <summary>
+        /// Event callback
+        /// </summary>
+        /// <param name="FileName"></param>
+        /// <param name="FileSize"></param>
+        /// <param name="ActualSize"></param>
+        protected virtual void OnDownloadInformatin(string FileName, long FileSize, long ActualSize)
+        {
+            DownloadInformation?.Invoke(this, new FileDownloadInformationEventArgs() { FileName = FileName, FileSize = FileSize, ActualFileSize = ActualSize });
         }
 
         #endregion
@@ -603,11 +619,16 @@
 
             try
             {
-                // Create new file decryptor
-                AesCryptoServiceProvider FileDecryptor = new AesCryptoServiceProvider();
-                FileDecryptor.KeySize = 128;
-
+                // Variable to store received data
                 byte[] Data = new byte[256];
+
+                // Create decryptor
+                AesCryptoServiceProvider FileDecryptor = new AesCryptoServiceProvider();
+                FileDecryptor.Mode         = CipherMode.CBC;
+                FileDecryptor.KeySize      = 128;
+                FileDecryptor.BlockSize    = 128;
+                FileDecryptor.FeedbackSize = 128;
+                FileDecryptor.Padding      = PaddingMode.PKCS7;
 
                 // Receive 128 bin AES key
                 vm.ClientConnection.Receive(Data);
@@ -625,23 +646,18 @@
                 vm.ClientConnection.Receive(Data);
                 long FileSize = long.Parse(Encoding.Default.GetString(ActiveConnections.First(c => c.ID == vm.ID).Decryptor.Decrypt(Data, true)));
 
-                // Create file stream
-                FileStream _fs = new FileStream($"{DownloadingDirectory}\\{FileName}", FileMode.Append, FileAccess.Write);
-
-                // Create cryptoStream
-                CryptoStream Stream = new CryptoStream(_fs, FileDecryptor.CreateDecryptor(), CryptoStreamMode.Write);
-
                 // Begin receiving file 
                 vm.ClientConnection.BeginReceive(DownloadingBuffer, 0, DownloadingBuffer.Length, SocketFlags.None,
-                    new AsyncCallback(DownloadSocketReceiveCallback), new FileDecryptorHandler() { Sender   = vm, 
-                                                                                                   FileName = FileName, 
-                                                                                                   FileSize = FileSize,
-                                                                                                   Stream   = _fs, 
-                                                                                                   CryptoStream = Stream} );
+                    new AsyncCallback(DownloadSocketReceiveCallback), 
+                    // Create a new FileHandler and pass it to the callback
+                    new FileDecryptorHandler(FileDecryptor,
+                                             FileName,
+                                             DownloadingDirectory,
+                                             FileSize) { Sender = vm } );
             }
 
             // Close the connection if it didn't work
-            catch
+            catch(Exception ex)
             { 
                 vm.ClientConnection.Close(); 
                 OnServerInformation("Invalid connection to the filetransfer socket was established, server closed the connection", Responses.Warning);
@@ -655,11 +671,11 @@
         /// <param name="ar"></param>
         private void DownloadSocketReceiveCallback(IAsyncResult ar)
         {
-            // Get the socket 
-            FileDecryptorHandler Args = ar.AsyncState as FileDecryptorHandler;
+            // Filehandler from the callback
+            FileDecryptorHandler FileHandler = ar.AsyncState as FileDecryptorHandler;
 
             // Get the amount of bytes received
-            int Rec = Args.Sender.ClientConnection.EndReceive(ar);
+            int Rec = FileHandler.Sender.ClientConnection.EndReceive(ar);
 
             // Check if any bytes where sent
             if (Rec > 0)
@@ -669,23 +685,38 @@
                 // Resize to the correct length
                 Array.Resize(ref ReceivedBytes, Rec);
 
-                // Write the received bytes to the cryptostream
-                Args.CryptoStream.Write(ReceivedBytes, 0, ReceivedBytes.Length);
-            }
+                // Move the byte array into a memory stream
+                using(MemoryStream mem = new MemoryStream(ReceivedBytes))
+                    // Keep reading blocks until the end of the stream is hit
+                    while(mem.Position < mem.Length)
+                    {
+                        // Read a block of data
+                        byte[] EncryptedBlock = new byte[1040];
+                        int read = mem.Read(EncryptedBlock, 0, EncryptedBlock.Length);
 
-            if (Args.ActualFileSize == Args.FileSize)
-            {
-                OnServerInformation($"{Args.FileName} has been downloaded", Responses.OK);
+                        // Resize the block to the correct size
+                        Array.Resize(ref EncryptedBlock, read);
 
-                // Close the cryptostream
-                Args.CryptoStream.Dispose();
-                // Close the filestream
-                Args.Stream.Dispose();
+                        // Move the block into the decryption handler
+                        bool res = FileHandler.WriteBytes(EncryptedBlock);
+
+                        // Call the event
+                        OnDownloadInformatin(FileHandler.FileName, FileHandler.FileSize, FileHandler.ActualSize);
+
+                        // Check if all bytes are received
+                        if (res)
+                        {
+                            OnServerInformation($"{FileHandler.FileName} has been downloaded", Responses.OK);
+                            FileHandler.Sender.ClientConnection.Close();
+                            return;
+                        }
+
+                    }
+                // Keep receiving bytes
+                FileHandler.Sender.ClientConnection.BeginReceive(DownloadingBuffer, 0, DownloadingBuffer.Length, SocketFlags.None,
+                                          new AsyncCallback(DownloadSocketReceiveCallback), FileHandler);
+
             }
-            else
-            // Begin receiving file 
-                Args.Sender.ClientConnection.BeginReceive(DownloadingBuffer, 0, DownloadingBuffer.Length, SocketFlags.None,
-                                                          new AsyncCallback(DownloadSocketReceiveCallback), Args);
         }
 
         #endregion

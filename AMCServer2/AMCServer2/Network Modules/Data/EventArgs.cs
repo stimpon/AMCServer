@@ -44,4 +44,25 @@
         /// </summary>
         public string Data           { get; set; }
     }
+
+    /// <summary>
+    /// EventArgs that carries information about a download
+    /// </summary>
+    public class FileDownloadInformationEventArgs : EventArgs
+    {
+        /// <summary>
+        /// Name of the file
+        /// </summary>
+        public string FileName      { get; set; }
+
+        /// <summary>
+        /// Size of the file
+        /// </summary>
+        public long FileSize        { get; set; }
+
+        /// <summary>
+        /// Current progress (Actual size of the file)
+        /// </summary>
+        public long ActualFileSize  { get; set; }
+    }
 }

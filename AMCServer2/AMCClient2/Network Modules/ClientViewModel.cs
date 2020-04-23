@@ -5,6 +5,7 @@
     /// </summary>
     #region Namespaces
     using System;
+    using System.Collections.Generic;
     using System.IO;
     using System.Linq;
     using System.Net;
@@ -234,48 +235,36 @@
         /// </summary>
         /// <param name="FilePath"></param>
         /// <param name="PacketSize"></param>
-        private void SendFile(string FilePath, int PacketSize = 1024)
+        private void SendFile(string FilePath)
         {
-            // Open the file in read mode
-            FileStream _fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read);
-
             // Create encryptor
             ICryptoTransform Crypto = FileEncryptor.CreateEncryptor();
 
-            using (MemoryStream MemStream = new MemoryStream())
-            using (CryptoStream CStream = new CryptoStream(MemStream, Crypto, CryptoStreamMode.Write))
+            // Open the file
+            using(FileStream fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read))
             {
-                // Keep copying bytes to the crypto stream until the end
-                // of the file is hit
-                while(_fs.Position < _fs.Length)
+                // Continue to read bytes until the end of the file is hit
+                while(fs.Position < fs.Length) 
                 {
-                    // Read a block of data from the file
-                    byte[] DataBlock = new byte[PacketSize];
-                    int read = _fs.Read(DataBlock, 0, DataBlock.Length);
+                    // Create block and fill it with bytes
+                    // from the file
+                    byte[] Block = new byte[1024];
+                    int Read = fs.Read(Block, 0, Block.Length);
 
-                    // Resize to correct size
-                    Array.Resize(ref DataBlock, read);
+                    // Resize the block to the correct size
+                    Array.Resize(ref Block, Read);
 
-                    // Write data to the stream
-                    CStream.Write(DataBlock, 0, DataBlock.Length);
+                    // Encrypt the block
+                    var Encrypyted = Crypto.TransformFinalBlock(Block, 0, Block.Length);
 
-                    // Send the encrypted file bytes
-                    FileSenderSocket.Send(MemStream.ToArray()[new Range(0, read)]);
-
-                    // Reset position
-                    MemStream.Position = 0;
+                    // Send the block to the server
+                    FileSenderSocket.Send(Encrypyted);
                 }
-
-                // Flush final block
-                CStream.FlushFinalBlock();
             }
 
             // Clear key and IV from memory as it is not needed anymore
             FileEncryptor.Key.ToList().Clear();
             FileEncryptor.IV.ToList().Clear();
-
-            // Notify
-            OnClientInformation("File sent to the server", Responses.Information);
 
             // Close the FileSender socket
             FileSenderSocket.Close();
@@ -465,9 +454,13 @@
                 // Endconnect
                 FileSenderSocket.EndConnect(ar);
 
-                // Create new Aes provider with new values
+                // Create encryptor
                 FileEncryptor = new AesCryptoServiceProvider();
-                FileEncryptor.KeySize = 128;
+                FileEncryptor.Mode         = CipherMode.CBC;
+                FileEncryptor.KeySize      = 128;
+                FileEncryptor.BlockSize    = 128;
+                FileEncryptor.FeedbackSize = 128;
+                FileEncryptor.Padding      = PaddingMode.PKCS7;
 
                 // Create random byte generator
                 using(var RNG = RandomNumberGenerator.Create())
@@ -487,9 +480,6 @@
 
                 // Send filesize
                 FileSenderSocket.Send(Encryptor.Encrypt(Encoding.Default.GetBytes((new FileInfo((string)ar.AsyncState).Length.ToString())), true));
-
-                // Information response
-                OnClientInformation("Sending file to server", Responses.Information);
 
                 // Send the file
                 SendFile((string)ar.AsyncState);

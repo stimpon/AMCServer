@@ -19,6 +19,7 @@
                     <RowDefinition Height="25"/>
                     <RowDefinition Height="25"/>
                     <RowDefinition Height="*"/>
+                    <RowDefinition Height="25"/>
                 </Grid.RowDefinitions>
 
                 <Border Grid.Row="0" Background="{StaticResource SolidColor_Blue}">
@@ -63,7 +64,7 @@
                                                     <TextBlock Text="{Binding Name}" VerticalAlignment="Center" 
                                                                HorizontalAlignment="Left" FontFamily="Consolas"
                                                                Margin="15,0,0,0" FontSize="12"
-                                                               Foreground="White" Width="180"/>
+                                                               Foreground="White" Width="180" TextTrimming="CharacterEllipsis"/>
 
                                                     <TextBlock Text="{Binding Extension}" VerticalAlignment="Center" 
                                                                HorizontalAlignment="Left" FontFamily="Consolas"
@@ -82,7 +83,7 @@
                                                             <ControlTemplate>
                                                                 <Border BorderThickness="0" Width="50">
                                                                     <TextBlock FontFamily="{StaticResource FontAwesome}" Text="{StaticResource Download}" FontSize="22"                                                                           
-                                                                               HorizontalAlignment="Right" Margin="0" Foreground="{StaticResource SolidColor_Green}"
+                                                                               HorizontalAlignment="Right" Margin="0" Foreground="Black"
                                                                                />
                                                                 </Border>
                                                             </ControlTemplate>
@@ -120,7 +121,14 @@
                     </ListView>
                     
                 </Border>
-                
+
+                <ProgressBar Grid.Row="3" Background="{StaticResource SolidColor_Gray}" BorderThickness="0" 
+                             Foreground="{StaticResource SolidColor_Green}"
+                             Maximum="{Binding Size}" Value="{Binding ActualSize}"/>
+                <TextBlock Grid.Row="3" VerticalAlignment="Center" HorizontalAlignment="Center" 
+                           FontFamily="Consolas" FontSize="13" Text="{Binding ProgresString}"
+                           FontWeight="Bold" Foreground="White"/>
+
             </Grid>
             
             <Grid Grid.Column="1" Margin="-1,0,0,0">
