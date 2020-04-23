@@ -1,4 +1,4 @@
-﻿namespace AMCServer2
+﻿namespace AMCClient2
 {
     /// <summary>
     /// Required namespaces
@@ -7,6 +7,7 @@
     using System;
     using System.IO;
     using System.Linq;
+    using System.Net;
     #endregion
 
     /// <summary>
@@ -26,7 +27,7 @@
         /// </summary>
         public static string ServerPropertiesConfigFilePath 
             => 
-        Environment.CurrentDirectory + "\\Program Files\\Config Files\\server.cfg";
+        Environment.CurrentDirectory + "\\Program Files\\Config Files\\client.cfg";
 
         #endregion
 
@@ -42,23 +43,15 @@
         /// <returns>Returns listening_port's value</returns>
         public static int GetServerPort()
             =>
-        Convert.ToInt32(File.ReadAllLines(ServerPropertiesConfigFilePath).First(l => l.StartsWith("listening_port")).Split(':')[1]);
+        Convert.ToInt32(File.ReadAllLines(ServerPropertiesConfigFilePath).First(l => l.StartsWith("server_port")).Split(':')[1]);
 
         /// <summary>
-        /// Reads the server backlog from the server config file
-        /// </summary>
-        /// <returns>Returns server_backlog's value</returns>
-        public static int GetServerBacklog()
-            =>
-        Convert.ToInt32(File.ReadAllLines(ServerPropertiesConfigFilePath).First(l => l.StartsWith("server_backlog")).Split(':')[1]);
-
-        /// <summary>
-        /// Reads the buffer size from the server config file
+        /// Reads the server IP address from the config file
         /// </summary>
         /// <returns>Returns buffer_size's value</returns>
-        public static int GetServerBufferSize()
+        public static IPAddress GetServerIPAddress()
             =>
-        Convert.ToInt32(File.ReadAllLines(ServerPropertiesConfigFilePath).First(l => l.StartsWith("buffer_size")).Split(':')[1]);
+        IPAddress.Parse(File.ReadAllLines(ServerPropertiesConfigFilePath).First(l => l.StartsWith("server_ip")).Split(':')[1]);
 
         /// <summary>
         /// Reads the FTP port from the server config file

@@ -81,10 +81,41 @@
                                                             CommandParameter="{Binding}">
                                                         <Button.Template>
                                                             <ControlTemplate>
-                                                                <Border BorderThickness="0" Width="50">
+                                                                <Border BorderThickness="0" Width="50" RenderTransformOrigin="0.5,0.5">
+                                                                    
+                                                                    <Border.RenderTransform>
+                                                                        <ScaleTransform ScaleX="1" ScaleY="1" x:Name="ButtonScale"/>
+                                                                    </Border.RenderTransform>
+                                                                    
                                                                     <TextBlock FontFamily="{StaticResource FontAwesome}" Text="{StaticResource Download}" FontSize="22"                                                                           
                                                                                HorizontalAlignment="Right" Margin="0" Foreground="Black"
                                                                                />
+
+                                                                    <Border.Triggers>
+                                                                        <EventTrigger RoutedEvent="MouseEnter">
+                                                                            <BeginStoryboard>
+                                                                                <Storyboard>
+                                                                                    <DoubleAnimation Storyboard.TargetName="ButtonScale" 
+                                                                                                     Storyboard.TargetProperty="(ScaleTransform.ScaleX)" To="1.2" Duration="00:00:00.1"/>
+
+                                                                                    <DoubleAnimation Storyboard.TargetName="ButtonScale" 
+                                                                                                     Storyboard.TargetProperty="(ScaleTransform.ScaleY)" To="1.2" Duration="00:00:00.1"/>
+                                                                                </Storyboard>
+                                                                            </BeginStoryboard>
+                                                                        </EventTrigger>
+                                                                        <EventTrigger RoutedEvent="MouseLeave">
+                                                                            <BeginStoryboard>
+                                                                                <Storyboard>
+                                                                                    <DoubleAnimation Storyboard.TargetName="ButtonScale" 
+                                                                                                     Storyboard.TargetProperty="(ScaleTransform.ScaleX)" To="1" Duration="00:00:00.1"/>
+
+                                                                                    <DoubleAnimation Storyboard.TargetName="ButtonScale" 
+                                                                                                     Storyboard.TargetProperty="(ScaleTransform.ScaleY)" To="1" Duration="00:00:00.1"/>
+                                                                                </Storyboard>
+                                                                            </BeginStoryboard>
+                                                                        </EventTrigger>
+                                                                    </Border.Triggers>
+                                                                    
                                                                 </Border>
                                                             </ControlTemplate>
                                                         </Button.Template>
@@ -124,7 +155,9 @@
 
                 <ProgressBar Grid.Row="3" Background="{StaticResource SolidColor_Gray}" BorderThickness="0" 
                              Foreground="{StaticResource SolidColor_Green}"
-                             Maximum="{Binding Size}" Value="{Binding ActualSize}"/>
+                             Maximum="{Binding Size}" Value="{Binding ActualSize}">
+                </ProgressBar>
+                
                 <TextBlock Grid.Row="3" VerticalAlignment="Center" HorizontalAlignment="Center" 
                            FontFamily="Consolas" FontSize="13" Text="{Binding ProgresString}"
                            FontWeight="Bold" Foreground="White"/>

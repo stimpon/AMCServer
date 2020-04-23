@@ -9,6 +9,7 @@
     using System.Collections.Generic;
     using System.Collections.Specialized;
     using System.ComponentModel;
+    using PropertyChanged;
     #endregion
 
     /// <summary>
@@ -18,6 +19,7 @@
     /// thread.
     /// </summary>
     /// <typeparam name="T"></typeparam>
+    [SuppressPropertyChangedWarnings]
     public class ThreadSafeObservableCollection<T> : 
                  ObservableCollection<T> {
         /// <summary>

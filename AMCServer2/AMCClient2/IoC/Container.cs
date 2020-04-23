@@ -1,5 +1,4 @@
 ﻿using Ninject;
-using System.Net;
 
 namespace AMCClient2.IoC
 {
@@ -21,7 +20,8 @@ namespace AMCClient2.IoC
 
             // ViewModel binding
             Kernel.Bind<ApplicationViewModel>().ToConstant(new ApplicationViewModel());
-            Kernel.Bind<ClientViewModel>().ToConstant(new ClientViewModel(400, IPAddress.Parse("127.0.0.1")));
+            Kernel.Bind<ClientViewModel>().ToConstant(new ClientViewModel(ConfigFilesProcessor.GetServerPort(),
+                                                                          ConfigFilesProcessor.GetServerIPAddress()));
         }
 
         /// <summary>

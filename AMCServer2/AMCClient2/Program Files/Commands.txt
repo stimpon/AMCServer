@@ -1,0 +1,3 @@
+﻿:connect    - Connect to the server
+:cls        - Clear the terminal
+:help       - Provides help information

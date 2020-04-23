@@ -467,7 +467,7 @@
                 catch (InvalidHandshakeException ex)
                 {
                     // Call the event
-                    OnServerInformation($"{s.RemoteEndPoint} Tried to connect but failed to verify", Responses.Warning);
+                    OnServerInformation($"{ex.Message} Tried to connect but failed to verify", Responses.Warning);
                     // Close the connection
                     s.Close();
                 }

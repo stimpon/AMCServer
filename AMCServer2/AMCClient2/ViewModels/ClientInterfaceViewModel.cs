@@ -40,7 +40,7 @@
         /// <summary>
         /// This is the serverlog that will be displayed in the server console
         /// </summary>
-        public ThreadSafeObservableCollection<LogItem> ServerLog { get; set; }
+        public ThreadSafeObservableCollection<ILogMessage> ClientLog { get; set; }
 
         /// <summary>
         /// These are the items that will be displayed in the explorer
@@ -86,9 +86,9 @@
             VM = this;
 
             // This is the standard message that shows when the program starts
-            ServerLog = new ThreadSafeObservableCollection<LogItem>() {
-                new LogItem() { Content = "AMCClient [Version 1.0.0]", ShowTime = false, Type = Responses.Information } ,
-                new LogItem() { Content = "(c) 2020 Stimpon",          ShowTime = false, Type = Responses.Information } ,
+            ClientLog = new ThreadSafeObservableCollection<ILogMessage>() {
+                new LogMessage() { Content = "AMCClient [Version 1.0.0]", ShowTime = false, Type = Responses.Information } ,
+                new LogMessage() { Content = "(c) 2020 Stimpon",          ShowTime = false, Type = Responses.Information } ,
             };
 
             #region Create commands
@@ -123,9 +123,23 @@
                     // :connect >> Connect to the server
                     case ":connect": IoC.Container.Get<ClientViewModel>().Connect(); break;
 
+                    /* :cls >> Clear the console
+                     */
+                    case ":cls": ClientLog.Clear(); break;
+
+                    /* :help >> Provide help information
+                     */
+                    case ":help":
+                        foreach (string ch in File.ReadAllLines(Environment.CurrentDirectory + "\\Program Files\\Commands.txt"))
+                            ClientLog.Add(new LogMessage()
+                            {
+                                Content = ch,
+                                ShowTime = false
+                            }); break;
+
                     // Invalid command
                     default:
-                        ServerLog.Add(new LogItem() { Content = $"'{CommandString}' is not recognized as a command, use ':h' for help", ShowTime = false });
+                        ClientLog.Add(new LogMessage() { Content = $"'{CommandString}' is not recognized as a command, use ':h' for help", ShowTime = false });
                         return;
                 }
             }
@@ -218,7 +232,7 @@
         /// <param name="e"></param>
         private void OnClientInformation(object sender, InformationEventArgs e)
         {
-            ServerLog.Add(new LogItem()
+            ClientLog.Add(new LogMessage()
             {
                 Content = e.Information,
                 EventTime = DateTime.Now.ToString(),

@@ -22,6 +22,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="Program Files\Commands.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Program Files\Config Files\client.cfg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
     <Page Update="Views\Styles\Colors.xaml">
       <SubType>Designer</SubType>
     </Page>

@@ -38,6 +38,7 @@
                 </Border>
 
                 <Border Grid.Row="2" Background="{StaticResource SolidColor_Gray}">
+
                     <ListView Background="Transparent" ItemsSource="{Binding ExplorerItems}" HorizontalContentAlignment="Left"
                               BorderThickness="0" SelectionMode="Single" x:Name="LvExplorer">
 
@@ -51,25 +52,79 @@
                                         <ControlTemplate>
 
                                             <Border Background="{TemplateBinding ListViewItem.Background}">
-                                                <DockPanel Margin="10,5,15,5">
-                                                    <TextBlock FontFamily="{StaticResource FontAwesome}" 
+                                                <DockPanel Margin="10,5,15,5" ScrollViewer.HorizontalScrollBarVisibility="Hidden">
+
+                                                    <Border Width="30">
+                                                        <Grid>
+                                                            <TextBlock FontFamily="{StaticResource FontAwesome}" 
                                                                Text="{Binding Converter={local:ExplorerItemToIconConverter}}" 
-                                                               FontSize="30" Foreground="{StaticResource SolidColor_Blue}" Width="30"/>
+                                                               FontSize="25" Foreground="{StaticResource SolidColor_Blue}" Width="30"/>
+                                                            <TextBlock FontFamily="{StaticResource FontAwesome}"
+                                                               Text="{StaticResource Lock}" Visibility="{Binding PermissionsDenied, Converter={local:BoolToVisibilityConverter}}"
+                                                               FontSize="18" Foreground="Gold" Width="30" TextAlignment="Center" HorizontalAlignment="Center"/>
+                                                        </Grid>
+                                                    </Border>
 
                                                     <TextBlock Text="{Binding Name}" VerticalAlignment="Center" 
                                                                HorizontalAlignment="Left" FontFamily="Consolas"
                                                                Margin="15,0,0,0" FontSize="12"
-                                                               Foreground="White" Width="200"/>
+                                                               Foreground="White" Width="180" TextTrimming="CharacterEllipsis"/>
 
                                                     <TextBlock Text="{Binding Extension}" VerticalAlignment="Center" 
                                                                HorizontalAlignment="Left" FontFamily="Consolas"
                                                                Margin="10,0,0,0" FontSize="12"
-                                                               Foreground="White" Width="50"/>
+                                                               Foreground="White" Width="40"/>
 
-                                                    <TextBlock Text="{Binding Converter={local:BytesToFormatedSizeStringConverter}}" VerticalAlignment="Center" 
+                                                    <TextBlock Text="{Binding FormatedSizeString}" VerticalAlignment="Center" 
                                                                HorizontalAlignment="Right" FontFamily="Consolas"
-                                                               Margin="10,0,20,0" FontSize="12"
-                                                               Foreground="White"/>
+                                                               Margin="10,0,5,0" FontSize="12"
+                                                               Foreground="White" Width="60" TextAlignment="Right"/>
+
+                                                    <Button Visibility="{Binding CanBeDownLoaded, Converter={local:BoolToVisibilityConverter}}"
+                                                            Command="{Binding ElementName=LvExplorer, Path=DataContext.DownloadFileClick}"
+                                                            CommandParameter="{Binding}">
+                                                        <Button.Template>
+                                                            <ControlTemplate>
+                                                                <Border BorderThickness="0" Width="50" RenderTransformOrigin="0.5,0.5">
+
+                                                                    <Border.RenderTransform>
+                                                                        <ScaleTransform ScaleX="1" ScaleY="1" x:Name="ButtonScale"/>
+                                                                    </Border.RenderTransform>
+
+                                                                    <TextBlock FontFamily="{StaticResource FontAwesome}" Text="{StaticResource Download}" FontSize="22"                                                                           
+                                                                               HorizontalAlignment="Right" Margin="0" Foreground="Black"
+                                                                               />
+
+                                                                    <Border.Triggers>
+                                                                        <EventTrigger RoutedEvent="MouseEnter">
+                                                                            <BeginStoryboard>
+                                                                                <Storyboard>
+                                                                                    <DoubleAnimation Storyboard.TargetName="ButtonScale" 
+                                                                                                     Storyboard.TargetProperty="(ScaleTransform.ScaleX)" To="1.2" Duration="00:00:00.1"/>
+
+                                                                                    <DoubleAnimation Storyboard.TargetName="ButtonScale" 
+                                                                                                     Storyboard.TargetProperty="(ScaleTransform.ScaleY)" To="1.2" Duration="00:00:00.1"/>
+                                                                                </Storyboard>
+                                                                            </BeginStoryboard>
+                                                                        </EventTrigger>
+                                                                        <EventTrigger RoutedEvent="MouseLeave">
+                                                                            <BeginStoryboard>
+                                                                                <Storyboard>
+                                                                                    <DoubleAnimation Storyboard.TargetName="ButtonScale" 
+                                                                                                     Storyboard.TargetProperty="(ScaleTransform.ScaleX)" To="1" Duration="00:00:00.1"/>
+
+                                                                                    <DoubleAnimation Storyboard.TargetName="ButtonScale" 
+                                                                                                     Storyboard.TargetProperty="(ScaleTransform.ScaleY)" To="1" Duration="00:00:00.1"/>
+                                                                                </Storyboard>
+                                                                            </BeginStoryboard>
+                                                                        </EventTrigger>
+                                                                    </Border.Triggers>
+
+                                                                </Border>
+                                                            </ControlTemplate>
+                                                        </Button.Template>
+                                                    </Button>
+
                                                 </DockPanel>
 
                                                 <Border.InputBindings>
@@ -99,6 +154,7 @@
                         </ListView.ItemContainerStyle>
 
                     </ListView>
+
                 </Border>
 
             </Grid>
@@ -118,7 +174,7 @@
                 </StackPanel>
 
                 <!--Terminal-->
-                <ListView Grid.Row="2" ItemsSource="{Binding ServerLog}" BorderThickness="0" Background="Black" Margin="0,0,0,25">
+                <ListView Grid.Row="2" ItemsSource="{Binding ClientLog}" BorderThickness="0" Background="Black" Margin="0,0,0,25">
 
                     <ListView.ItemsPanel>
                         <ItemsPanelTemplate>
