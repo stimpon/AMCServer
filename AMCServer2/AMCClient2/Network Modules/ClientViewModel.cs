@@ -5,7 +5,6 @@
     /// </summary>
     #region Namespaces
     using System;
-    using System.Collections.Generic;
     using System.IO;
     using System.Linq;
     using System.Net;
@@ -72,7 +71,7 @@
         private RSACryptoServiceProvider Decryptor;
 
         /// <summary>
-        /// Encryprot used to encrypt files
+        /// Encrypter used to encrypt files
         /// </summary>
         private AesCryptoServiceProvider FileEncryptor;
 

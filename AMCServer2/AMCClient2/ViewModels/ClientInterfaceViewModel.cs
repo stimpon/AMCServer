@@ -7,9 +7,7 @@
     using System;
     using System.Linq;
     using System.IO;
-    using System.Security;
     using System.Security.AccessControl;
-    using System.Security.Permissions;
     using System.Security.Principal;
     #endregion
 
@@ -18,7 +16,6 @@
     /// </summary>
     public class ClientInterfaceViewModel : BaseViewModel
     {
-
         #region Public Properties
 
         /// <summary>
@@ -33,7 +30,36 @@
         /// </summary>
         public RelayCommandNoParameters ExecuteCommand { get; set; }
 
+        /// <summary>
+        /// When an item is double clicked on in the explorer
+        /// </summary>
         public RelayCommand ExplorerDoubleClick { get; set; }
+
+        /// <summary>
+        /// When the download button is clicked on in the explorer
+        /// </summary>
+        public RelayCommand DownloadFileClick { get; set; }
+
+        #endregion
+
+        #region Current download properties
+
+        /// <summary>
+        /// Name of the file
+        /// </summary>
+        public string FileName { get; set; }
+        /// <summary>
+        /// Size of the file
+        /// </summary>
+        public decimal Size { get; set; } = 1;
+        /// <summary>
+        /// Downloaded bytes
+        /// </summary>
+        public decimal ActualSize { get; set; } = 0;
+        /// <summary>
+        /// String for the View
+        /// </summary>
+        public string ProgresString { get; set; }
 
         #endregion
 
@@ -46,11 +72,11 @@
         /// These are the items that will be displayed in the explorer
         /// </summary>
         public ThreadSafeObservableCollection<FileExplorerObject> ExplorerItems { get; set; }
+
         /// <summary>
         /// The current path in the explorer
         /// </summary>
         public string CurrentPathOnServerPC { get; set; }
-
 
         /// <summary>
         /// The string that is linked to the command box
@@ -72,7 +98,6 @@
                 // Call the Init method when a new instance of this VM is created
                 Init();
         }
-
 
         #region Functions
 

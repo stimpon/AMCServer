@@ -5,13 +5,11 @@
     /// </summary>
     #region Namespaces
     using System;
-    using System.Collections.Generic;
     using System.Net;
     using System.Net.Sockets;
     using System.Text;
     using System.Security.Cryptography;
     using System.Linq;
-    using System.Collections.ObjectModel;
     using System.IO;
     #endregion
 
@@ -596,10 +594,7 @@
 
         #region FileTransferSocket
 
-        /// <summary>
-        /// File-download callbacks
-        /// </summary>
-        #region Callbacks
+        #region File-download callbacks
 
         /// <summary>
         /// Callback for when a client connects to the downloading socket
@@ -721,10 +716,7 @@
 
         #endregion
 
-        /// <summary>
-        /// Send-file callbacks
-        /// </summary>
-        #region Callbacks
+        #region Send-file callbacks
 
         #endregion
 
