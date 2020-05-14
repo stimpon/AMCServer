@@ -1,27 +1,29 @@
-﻿using Ninject;
+﻿using NetworkModulesClient;
+using Ninject;
 
-namespace AMCClient2.IoC
+namespace AMCClient2
 {
     /// <summary>
     /// This is the IoC Container
     /// </summary>
-    public static class Container
+    public class Container
     {
+        /// <summary>
+        /// Gets the instance.
+        /// </summary>
+        public static Container Instance => new Container(); 
+
         /// <summary>
         /// Application kernel
         /// </summary>
-        public static IKernel Kernel { get; private set; } = new StandardKernel();
+        public static IKernel Kernel { get; private set; }
 
         /// <summary>
         /// Method that setups the IoC Container
         /// </summary>
         public static void SetupIoC()
         {
-
-            // ViewModel binding
-            Kernel.Bind<ApplicationViewModel>().ToConstant(new ApplicationViewModel());
-            Kernel.Bind<ClientViewModel>().ToConstant(new ClientViewModel(ConfigFilesProcessor.GetServerPort(),
-                                                                          ConfigFilesProcessor.GetServerIPAddress()));
+            Kernel = new StandardKernel().Construct();
         }
 
         /// <summary>
@@ -30,5 +32,21 @@ namespace AMCClient2.IoC
         /// <typeparam name="T">Type to get from the kernel</typeparam>
         /// <returns>returns the boudn item</returns>
         public static T Get<T>() => Kernel.Get<T>();
+
+        /// <summary>
+        /// Gets the <see cref="ApplicationViewModel"/> From the container
+        /// </summary>
+        /// <returns></returns>
+        public static ApplicationViewModel ApplicationViewModel
+        =>
+        Kernel.Get<ApplicationViewModel>();
+
+        /// <summary>
+        /// Gets the <see cref="ServerHandler"/> From the container
+        /// </summary>
+        /// <returns></returns>
+        public static ClientHandler ClientHandler
+        =>
+        Kernel.Get<ClientHandler>();
     }
 }

@@ -1,5 +1,7 @@
 ﻿namespace AMCServer2
 {
+    using NetworkModules.Core;
+
     /// <summary>
     /// Required namespaces
     /// </summary>

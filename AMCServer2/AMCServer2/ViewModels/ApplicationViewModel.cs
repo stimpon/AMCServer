@@ -15,7 +15,7 @@ namespace AMCServer2
         /// <summary>
         /// Tells the View wich page to show
         /// </summary>
-        public MainViews CurrentPage         { get; set; }
+        public MainViews CurrentPage { get; set; }
 
         #endregion
 

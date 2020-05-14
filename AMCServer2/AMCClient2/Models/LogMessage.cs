@@ -5,6 +5,7 @@
     /// </summary>
     #region Namespaces
     using System;
+    using NetworkModules.Core;
     #endregion
 
     /// <summary>

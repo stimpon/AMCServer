@@ -37,7 +37,7 @@
 
             <Border Grid.Row="1" Background="Black"/>
 
-            <Frame Grid.Row="2" Content="{Binding ApplicationViewModel.CurrentPage, Source={x:Static local:Locator.Instance}, Converter={local:TypeToPageConverter}}"/>
+            <Frame Grid.Row="2" Content="{Binding ApplicationViewModel.CurrentPage, Source={x:Static local:Container.Instance}, Converter={local:TypeToPageConverter}}"/>
 
         </Grid>
     </Border>

@@ -5,7 +5,17 @@ VisualStudioVersion = 16.0.29920.165
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AMCServer2", "AMCServer2\AMCServer2.csproj", "{C686DF56-0D9F-4A7C-A6A9-5BA3311E1A87}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AMCClient2", "AMCClient2\AMCClient2.csproj", "{51FA2E47-F57C-4308-88AC-A4D42D288961}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AMCClient2", "AMCClient2\AMCClient2.csproj", "{51FA2E47-F57C-4308-88AC-A4D42D288961}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NetworkModules.Core", "..\..\..\NetworkModules\NetworkModules.Core\NetworkModules.Core.csproj", "{04E1B55C-64FD-471B-9A66-6FD384EBF736}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NetworkModulesClient", "..\..\..\NetworkModules\NetworkModulesClient\NetworkModulesClient.csproj", "{886F20E4-F156-482A-8341-2900CCFA7770}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NetworkModulesServer", "..\..\..\NetworkModules\NetworkModulesServer\NetworkModulesServer.csproj", "{9AC25FDA-DC0E-46F6-942A-EEBDFC03F5E6}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Network", "Network", "{2130FE40-3BFC-4B1A-86EB-AA7F70798930}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "AMC", "AMC", "{531BA26C-E6CC-4023-9C9F-65BAE181BA89}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,9 +31,28 @@ Global
 		{51FA2E47-F57C-4308-88AC-A4D42D288961}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{51FA2E47-F57C-4308-88AC-A4D42D288961}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{51FA2E47-F57C-4308-88AC-A4D42D288961}.Release|Any CPU.Build.0 = Release|Any CPU
+		{04E1B55C-64FD-471B-9A66-6FD384EBF736}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{04E1B55C-64FD-471B-9A66-6FD384EBF736}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{04E1B55C-64FD-471B-9A66-6FD384EBF736}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{04E1B55C-64FD-471B-9A66-6FD384EBF736}.Release|Any CPU.Build.0 = Release|Any CPU
+		{886F20E4-F156-482A-8341-2900CCFA7770}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{886F20E4-F156-482A-8341-2900CCFA7770}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{886F20E4-F156-482A-8341-2900CCFA7770}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{886F20E4-F156-482A-8341-2900CCFA7770}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9AC25FDA-DC0E-46F6-942A-EEBDFC03F5E6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9AC25FDA-DC0E-46F6-942A-EEBDFC03F5E6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9AC25FDA-DC0E-46F6-942A-EEBDFC03F5E6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9AC25FDA-DC0E-46F6-942A-EEBDFC03F5E6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{C686DF56-0D9F-4A7C-A6A9-5BA3311E1A87} = {531BA26C-E6CC-4023-9C9F-65BAE181BA89}
+		{51FA2E47-F57C-4308-88AC-A4D42D288961} = {531BA26C-E6CC-4023-9C9F-65BAE181BA89}
+		{04E1B55C-64FD-471B-9A66-6FD384EBF736} = {2130FE40-3BFC-4B1A-86EB-AA7F70798930}
+		{886F20E4-F156-482A-8341-2900CCFA7770} = {2130FE40-3BFC-4B1A-86EB-AA7F70798930}
+		{9AC25FDA-DC0E-46F6-942A-EEBDFC03F5E6} = {2130FE40-3BFC-4B1A-86EB-AA7F70798930}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {F310F838-2D06-4D36-B366-4D46E4347FE3}

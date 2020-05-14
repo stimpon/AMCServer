@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Configuration;
-using System.Data;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Windows;
+﻿using System.Windows;
 
 namespace AMCServer2
 {
@@ -26,7 +20,7 @@ namespace AMCServer2
             base.OnStartup(e);
 
             // Setup the IoC
-            IoC.DependencyInjectionCore.Configure();
+            Container.Configure();
 
             // Open the MainWindow
             Current.MainWindow = new MainWindow();

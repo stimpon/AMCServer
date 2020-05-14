@@ -172,7 +172,7 @@
                     <RowDefinition Height="2*"/>
                 </Grid.RowDefinitions>
 
-                <ListView Grid.Row="0" Background="White" BorderThickness="0" ItemsSource="{Binding ServerViewModel.ActiveConnections, Source={x:Static local:Locator.Instance}}">
+                <ListView Grid.Row="0" Background="White" BorderThickness="0" ItemsSource="{Binding ServerHandler.ActiveConnections, Source={x:Static local:Container.Instance}}">
                     <ListView.View>
                         <GridView ColumnHeaderContainerStyle="{StaticResource ConnectionsListHeaderStyle}">
 
@@ -195,10 +195,10 @@
                     <TextBlock Margin="5,0,0,0" Foreground="White" Text="Terminal" VerticalAlignment="Center" 
                                HorizontalAlignment="Left" FontFamily="Consolas" FontSize="13"/>
                     <TextBlock VerticalAlignment="Center" Foreground="White" FontFamily="Consolas" FontSize="13" Margin="10,0,0,0">
-                        <Run Text="| Server state: "/><Run Text="{Binding ServerViewModel.ServerState, Source={x:Static local:Locator.Instance}, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        <Run Text="| Server state: "/><Run Text="{Binding ServerHandler.ServerState, Source={x:Static local:Container.Instance}, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}"/>
                     </TextBlock>
                     <TextBlock VerticalAlignment="Center" Foreground="White" FontFamily="Consolas" FontSize="13" Margin="10,0,0,0">
-                        <Run Text="| Bound client: "/><Run Text="{Binding ServerViewModel.BoundClient, Source={x:Static local:Locator.Instance}, Mode=OneWay}"/>
+                        <Run Text="| Bound client: "/><Run Text="{Binding ServerHandler.BoundClient, Source={x:Static local:Container.Instance}, Mode=OneWay}"/>
                     </TextBlock>
 
                 </DockPanel>

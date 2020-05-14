@@ -9,6 +9,8 @@
     using System.IO;
     using System.Security.AccessControl;
     using System.Security.Principal;
+    using NetworkModules.Core;
+    using NetworkModulesClient;
     #endregion
 
     /// <summary>
@@ -124,8 +126,8 @@
             #endregion
 
             // Subscribe to server events
-            IoC.Container.Get<ClientViewModel>().ClientInformation += OnClientInformation;
-            IoC.Container.Get<ClientViewModel>().DataReceived      += OnDataReceived;
+            Container.Get<ClientHandler>().ClientInformation += OnClientInformation;
+            Container.Get<ClientHandler>().DataReceived      += OnDataReceived;
         }
 
         /// <summary>
@@ -137,7 +139,7 @@
 
             // :msg + [STRING] >> Send message to the server
             if (CommandString.ToLower().StartsWith(":msg "))
-                IoC.Container.Get<ClientViewModel>().Send("[PRINT]" + CommandString.Substring(5));
+                Container.Get<ClientHandler>().Send("[PRINT]" + CommandString.Substring(5));
 
             // Check if standalone command
             else
@@ -145,7 +147,7 @@
                 switch (CommandString.ToLower())
                 {
                     // :connect >> Connect to the server
-                    case ":connect": IoC.Container.Get<ClientViewModel>().Connect(); break;
+                    case ":connect": Container.Get<ClientHandler>().Connect(); break;
 
                     /* :cls >> Clear the console
                      */
@@ -181,7 +183,7 @@
             // Loop through all drives
             foreach(var drive in Drives)
             {
-                IoC.Container.Get<ClientViewModel>().Send($"[DRIVE]{drive.Name}|{drive.VolumeLabel}");
+                Container.Get<ClientHandler>().Send($"[DRIVE]{drive.Name}|{drive.VolumeLabel}");
             }
         }
 
@@ -221,14 +223,14 @@
                 }
                 catch { }
 
-                IoC.Container.Get<ClientViewModel>().Send($"[FOLDER]" +
+                Container.Get<ClientHandler>().Send($"[FOLDER]" +
                     $"{Path.GetFileName(Folder)}|{PermissionsDenied}");
             }
             // Loop through all files and send them to the server
             foreach (var File in Files)
             {
                 FileInfo f = new FileInfo(File);
-                IoC.Container.Get<ClientViewModel>().Send($"[FILE]" +
+                Container.Get<ClientHandler>().Send($"[FILE]" +
                     $"{f.Name}|{f.Extension}|{f.Length}");
             }
         }
@@ -246,7 +248,7 @@
             FileInfo req_file = new FileInfo(FilePath);
 
             // SBegin sending the file
-            IoC.Container.Get<ClientViewModel>().BeginSendFile(FilePath);
+            Container.Get<ClientHandler>().BeginSendFile(FilePath);
         }
 
         /// <summary>

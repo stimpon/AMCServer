@@ -6,8 +6,8 @@
     #region Namespaces
     using System;
     using System.IO;
-    using System.Collections.ObjectModel;
-    using System.Windows;
+    using NetworkModules.Core;
+    using NetworkModulesServer;
     #endregion
 
     /// <summary>
@@ -125,9 +125,9 @@
             #endregion
 
             // Subscribe to server events
-            IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>().NewServerInformation += OnServerInformation;
-            IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>().NewDataReceived      += OnDataReceived;
-            IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>().DownloadInformation  += OnDownloadInformation;
+            Container.GetSingleton<ServerHandler>().NewServerInformation += OnServerInformation;
+            Container.GetSingleton<ServerHandler>().NewDataReceived      += OnDataReceived;
+            Container.GetSingleton<ServerHandler>().DownloadInformation  += OnDownloadInformation;
 
         }
 
@@ -143,7 +143,7 @@
             {
                 // Try to parse the argument into an int
                 if (int.TryParse(CommandString.Substring(5), out int ID))
-                    IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>().BindServer(ID);
+                    Container.GetSingleton<ServerHandler>().BindServer(ID);
                 else
                     ServerLog.Add(new LogMessage() { Content  = $"'{CommandString.Substring(5)}' is an invalid ID", 
                                                   ShowTime = false, 
@@ -161,13 +161,13 @@
 
                     /* :start >> Start the server
                      */
-                    case ":start": IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>().StartServer(); break;
+                    case ":start": Container.GetSingleton<ServerHandler>().StartServer(); break;
 
                     /* :stop >> Stop the server
                      */
-                    case ":stop": IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>().StopServer(); break;
+                    case ":stop": Container.GetSingleton<ServerHandler>().StopServer(); break;
 
-                    case ":unbind": IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>().UnbindServer(); break;
+                    case ":unbind": Container.GetSingleton<ServerHandler>().UnbindServer(); break;
 
                     case ":getdrives":
                         // Prepare the explorer
@@ -175,7 +175,7 @@
                         // Clear current path
                         CurrentPathOnClientPC = String.Empty;
                         // If the message was sent successfuly, clear the explorer to prepare it for the incoming data
-                        IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>().Send("[DRIVES]");
+                        Container.GetSingleton<ServerHandler>().Send("[DRIVES]");
                         break;
 
                     /* :help >> Provide help information
@@ -334,7 +334,7 @@
                 ExplorerItems.Clear();
 
                 // Request navigation
-                IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>().Send((Item.Type == ExplorerItemTypes.Folder) ? 
+                Container.GetSingleton<ServerHandler>().Send((Item.Type == ExplorerItemTypes.Folder) ? 
                     $"[NAV]{CurrentPathOnClientPC}\\{Item.Name}" : 
                     $"[NAV]{Item.Path}");
 
@@ -354,11 +354,11 @@
             var Item = o as FileExplorerObject;
 
             // Begin receiving the file
-            IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>().ReceiveFile(IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>().BoundClient,
+            Container.GetSingleton<ServerHandler>().ReceiveFile(Container.GetSingleton<ServerHandler>().BoundClient,
                 Environment.GetFolderPath(Environment.SpecialFolder.Desktop));
 
             // Send downloading request
-            IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>().Send($"[DOWNLOAD]{CurrentPathOnClientPC}\\{Item.Name}");
+            Container.GetSingleton<ServerHandler>().Send($"[DOWNLOAD]{CurrentPathOnClientPC}\\{Item.Name}");
         }
 
         #endregion

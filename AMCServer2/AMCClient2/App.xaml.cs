@@ -19,7 +19,7 @@ namespace AMCClient2
             base.OnStartup(e);
 
             // Setup the IoC
-            IoC.Container.SetupIoC();
+            Container.SetupIoC();
 
             // Show the MainWindow
             Application.Current.MainWindow = new MainWindow();
