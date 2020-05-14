@@ -125,9 +125,9 @@
             #endregion
 
             // Subscribe to server events
-            IoC.Container.Get<ServerViewModel>().NewServerInformation += OnServerInformation;
-            IoC.Container.Get<ServerViewModel>().NewDataReceived      += OnDataReceived;
-            IoC.Container.Get<ServerViewModel>().DownloadInformation  += OnDownloadInformation;
+            IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>().NewServerInformation += OnServerInformation;
+            IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>().NewDataReceived      += OnDataReceived;
+            IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>().DownloadInformation  += OnDownloadInformation;
 
         }
 
@@ -143,7 +143,7 @@
             {
                 // Try to parse the argument into an int
                 if (int.TryParse(CommandString.Substring(5), out int ID))
-                    IoC.Container.Get<ServerViewModel>().BindServer(ID);
+                    IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>().BindServer(ID);
                 else
                     ServerLog.Add(new LogMessage() { Content  = $"'{CommandString.Substring(5)}' is an invalid ID", 
                                                   ShowTime = false, 
@@ -161,13 +161,13 @@
 
                     /* :start >> Start the server
                      */
-                    case ":start": IoC.Container.Get<ServerViewModel>().StartServer(); break;
+                    case ":start": IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>().StartServer(); break;
 
                     /* :stop >> Stop the server
                      */
-                    case ":stop": IoC.Container.Get<ServerViewModel>().StopServer(); break;
+                    case ":stop": IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>().StopServer(); break;
 
-                    case ":unbind": IoC.Container.Get<ServerViewModel>().UnbindServer(); break;
+                    case ":unbind": IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>().UnbindServer(); break;
 
                     case ":getdrives":
                         // Prepare the explorer
@@ -175,7 +175,7 @@
                         // Clear current path
                         CurrentPathOnClientPC = String.Empty;
                         // If the message was sent successfuly, clear the explorer to prepare it for the incoming data
-                        IoC.Container.Get<ServerViewModel>().Send("[DRIVES]");
+                        IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>().Send("[DRIVES]");
                         break;
 
                     /* :help >> Provide help information
@@ -334,7 +334,7 @@
                 ExplorerItems.Clear();
 
                 // Request navigation
-                IoC.Container.Get<ServerViewModel>().Send((Item.Type == ExplorerItemTypes.Folder) ? 
+                IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>().Send((Item.Type == ExplorerItemTypes.Folder) ? 
                     $"[NAV]{CurrentPathOnClientPC}\\{Item.Name}" : 
                     $"[NAV]{Item.Path}");
 
@@ -354,11 +354,11 @@
             var Item = o as FileExplorerObject;
 
             // Begin receiving the file
-            IoC.Container.Get<ServerViewModel>().ReceiveFile(IoC.Container.Get<ServerViewModel>().BoundClient,
+            IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>().ReceiveFile(IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>().BoundClient,
                 Environment.GetFolderPath(Environment.SpecialFolder.Desktop));
 
             // Send downloading request
-            IoC.Container.Get<ServerViewModel>().Send($"[DOWNLOAD]{CurrentPathOnClientPC}\\{Item.Name}");
+            IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>().Send($"[DOWNLOAD]{CurrentPathOnClientPC}\\{Item.Name}");
         }
 
         #endregion

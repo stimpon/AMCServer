@@ -26,7 +26,7 @@ namespace AMCServer2
             base.OnStartup(e);
 
             // Setup the IoC
-            IoC.Container.SetupIoC();
+            IoC.DependencyInjectionCore.Configure();
 
             // Open the MainWindow
             Current.MainWindow = new MainWindow();

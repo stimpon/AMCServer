@@ -96,7 +96,7 @@
         {
             if (ProgramState.IsRunning)
                 // Call the Init method when a new instance of this VM is created
-                Init();
+                Initialize();
         }
 
         #region Functions
@@ -105,7 +105,7 @@
         /// First function that will be called when a new instance
         /// of this ViewModel is created
         /// </summary>
-        private void Init()
+        private void Initialize()
         {
             // Set the accessable ViewModel to this class
             VM = this;
@@ -126,7 +126,6 @@
             // Subscribe to server events
             IoC.Container.Get<ClientViewModel>().ClientInformation += OnClientInformation;
             IoC.Container.Get<ClientViewModel>().DataReceived      += OnDataReceived;
-
         }
 
         /// <summary>

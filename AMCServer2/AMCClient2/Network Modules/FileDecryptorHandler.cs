@@ -13,7 +13,7 @@
     /// <summary>
     /// Carries information about a download
     /// </summary>
-    internal class FileDecryptorHandler
+    internal class FileDecryptorHandler : IFileHandler
     {
         #region File properties
 

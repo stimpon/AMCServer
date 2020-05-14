@@ -1,22 +1,31 @@
-﻿using Ninject;
-
-namespace AMCServer2.IoC
+﻿namespace AMCServer2.IoC
 {
+    /// <summary>
+    /// Reqiored nemespaces
+    /// </summary>
+    #region Namespaces
+    using Ninject;
+    using Ninject.Components;
+    #endregion
+
     /// <summary>
     /// This is the IoC Container
     /// </summary>
-    public static class Container
+    public static class DependencyInjectionCore
     {
         /// <summary>
         /// Application kernel
         /// </summary>
-        public static IKernel Kernel { get; private set; } = new StandardKernel();
+        public static IKernel Kernel { get; private set; }
 
         /// <summary>
         /// Method that setups the IoC Container
         /// </summary>
-        public static void SetupIoC()
+        public static void Configure()
         {
+            // Create the application kernel
+            Kernel = new StandardKernel();
+
             /* This function should run on startup and it
              * will bind all neccesery ViewModel's to the
              * kernel
@@ -37,6 +46,6 @@ namespace AMCServer2.IoC
         /// </summary>
         /// <typeparam name="T">Type to get from the kernel</typeparam>
         /// <returns>returns the boudn item</returns>
-        public static T Get<T>() => Kernel.Get<T>();
+        public static T GetSingleton<T>() => Kernel.Get<T>();
     }
 }

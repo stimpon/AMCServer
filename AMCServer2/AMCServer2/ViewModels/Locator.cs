@@ -19,14 +19,14 @@
         /// </summary>
         public static ApplicationViewModel ApplicationViewModel 
             => 
-            IoC.Container.Get<ApplicationViewModel>();
+            IoC.DependencyInjectionCore.GetSingleton<ApplicationViewModel>();
 
         /// <summary>
         /// Gets the ServerViewModel from the Kernel
         /// </summary>
         public static ServerViewModel ServerViewModel 
             =>
-            IoC.Container.Get<ServerViewModel>();
+            IoC.DependencyInjectionCore.GetSingleton<ServerViewModel>();
 
         #endregion
 

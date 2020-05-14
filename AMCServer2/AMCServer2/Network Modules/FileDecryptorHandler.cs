@@ -1,7 +1,5 @@
 ﻿namespace AMCServer2
 {
-    using System;
-
     /// <summary>
     /// Required namespaces
     /// </summary>
@@ -15,7 +13,7 @@
     /// <summary>
     /// Carries information about a download
     /// </summary>
-    internal class FileDecryptorHandler
+    internal class FileDecryptorHandler : IFileHandler
     {
         #region File properties
 

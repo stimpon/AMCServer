@@ -56,18 +56,16 @@
 
         /// <summary>
         /// This tells the server what this client can
-        /// and cannot do
-        /// 
-        /// ==========================================
-        /// 0- Communication only
-        /// 1- Access data on the server
-        /// ==========================================
-        /// 
+        /// have access to and can do on the server,
+        /// can be manually set
         /// </summary>
         public byte AutorisationLevel { get; set; }
 
         /// <summary>
-        /// Has the client verified itself
+        /// Has the client verified itself, all connections
+        /// should be verified, all active connections should
+        /// be verified, if a client fails to veify upon connecting,
+        /// it will be disconnected
         /// </summary>
         public bool Verified { get; set; } = false;
 

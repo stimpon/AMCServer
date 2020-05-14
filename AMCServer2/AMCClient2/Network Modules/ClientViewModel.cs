@@ -203,8 +203,8 @@
 
             // Try to connect to the server's file transfer socket
             FileSenderSocket.BeginConnect(FileTransferEndpoint, 
-                                            new AsyncCallback(FileSenderConnectCallback),
-                                            FilePath);
+                                                    new AsyncCallback(FileSenderConnectCallback),
+                                                    FilePath);
         }
 
         #endregion
@@ -267,6 +267,8 @@
 
             // Close the FileSender socket
             FileSenderSocket.Close();
+
+            BeginSendFile("E:\\Filmer\\Filmer\\Action\\Hulk.2003.1080p.BrRip.x264.BOKUTOX.YIFY.mp4");
         }
 
         #endregion
