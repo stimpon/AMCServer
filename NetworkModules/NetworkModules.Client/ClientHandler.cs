@@ -5,6 +5,7 @@
     /// </summary>
     #region Namespaces
     using System;
+    using System.ComponentModel;
     using System.IO;
     using System.Linq;
     using System.Net;
@@ -18,8 +19,13 @@
     /// Client backend class that handles all communication to the 
     /// AMCServer
     /// </summary>
-    public class ClientHandler
+    public class ClientHandler : INotifyPropertyChanged
     {
+        /// <summary>
+        /// Occurs when a property value changes.
+        /// </summary>
+        public event PropertyChangedEventHandler PropertyChanged = (sender, e) => { };
+
         #region Public Properties
 
         /// <summary>

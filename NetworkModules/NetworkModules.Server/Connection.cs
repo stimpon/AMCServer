@@ -5,16 +5,21 @@
     /// </summary>
     #region Namespaces
     using System;
+    using System.ComponentModel;
     using System.Net.Sockets;
     using System.Security.Cryptography;
-    using NetworkModules.Core;
     #endregion
 
     /// <summary>
     /// Model of the Client
     /// </summary>
-    public class Connection : ViewModelBase
+    public class Connection : INotifyPropertyChanged
     {
+        /// <summary>
+        /// Occurs when a property value changes.
+        /// </summary>
+        public event PropertyChangedEventHandler PropertyChanged = (sender, e) => { };
+
         /// <summary>
         /// Client ID
         /// </summary>

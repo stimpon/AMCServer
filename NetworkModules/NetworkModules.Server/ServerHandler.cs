@@ -12,14 +12,20 @@
     using System.Linq;
     using System.IO;
     using NetworkModules.Core;
-    using System.Collections.ObjectModel;
+    using System.ComponentModel;
     #endregion
 
     /// <summary>
     /// Crypto server backend that handles AMCClients
     /// </summary>
-    public class ServerHandler : ViewModelBase
+    public class ServerHandler :
+                 INotifyPropertyChanged
     {
+        /// <summary>
+        /// Occurs when a property value changes.
+        /// </summary>
+        public event PropertyChangedEventHandler PropertyChanged = (sender, e) => { };
+
         #region Public Properties
 
         /// <summary>
