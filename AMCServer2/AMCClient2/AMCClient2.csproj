@@ -16,8 +16,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\NetworkModules\NetworkModules.Core\NetworkModules.Core.csproj" />
-    <ProjectReference Include="..\..\..\..\NetworkModules\NetworkModulesClient\NetworkModulesClient.csproj" />
+    <ProjectReference Include="..\..\NetworkModules\NetworkModules.Client\NetworkModules.Client.csproj" />
+    <ProjectReference Include="..\..\NetworkModules\NetworkModules.Core\NetworkModules.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

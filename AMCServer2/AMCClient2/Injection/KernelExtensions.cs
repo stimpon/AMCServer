@@ -5,7 +5,7 @@
     /// </summary>
     #region Namespaces
     using Ninject;
-    using NetworkModulesClient;
+    using NetworkModules.Client;
     #endregion
 
     /// <summary>

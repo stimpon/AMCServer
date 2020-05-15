@@ -10,7 +10,7 @@
     using System.Security.AccessControl;
     using System.Security.Principal;
     using NetworkModules.Core;
-    using NetworkModulesClient;
+    using NetworkModules.Client;
     #endregion
 
     /// <summary>

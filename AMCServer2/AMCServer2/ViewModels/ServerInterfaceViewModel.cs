@@ -7,7 +7,7 @@
     using System;
     using System.IO;
     using NetworkModules.Core;
-    using NetworkModulesServer;
+    using NetworkModules.Server;
     #endregion
 
     /// <summary>

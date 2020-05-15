@@ -1,4 +1,4 @@
-﻿using NetworkModulesClient;
+﻿using NetworkModules.Client;
 using Ninject;
 
 namespace AMCClient2
