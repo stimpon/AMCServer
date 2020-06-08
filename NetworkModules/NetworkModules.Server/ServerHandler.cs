@@ -18,8 +18,7 @@
     /// <summary>
     /// Crypto server backend that handles AMCClients
     /// </summary>
-    public class ServerHandler :
-                 INotifyPropertyChanged
+    public class ServerHandler : INotifyPropertyChanged
     {
         /// <summary>
         /// Occurs when a property value changes.
@@ -46,7 +45,7 @@
         /// <summary>
         /// All of the active connections
         /// </summary>
-        public ThreadSafeObservableCollection<Connection> ActiveConnections { get; private set; }
+        public ThreadSafeObservableCollection<ConnectionViewModel> ActiveConnections { get; private set; }
 
         /// <summary>
         /// Current server staus
@@ -59,21 +58,9 @@
         public int BufferSize           { get; private set; }
 
         /// <summary>
-        /// The handshake message that needs to be provided
-        /// from the clien when connecting
-        /// </summary>
-        public string HandShakeString   { get; private set; }
-
-        /// <summary>
         /// The client currently bound to the server
         /// </summary>
         public int BoundClient          { get; private set; }
-
-        /// <summary>
-        /// Is set to true if the server is waiting for a file
-        /// or is receiving a file
-        /// </summary>
-        public bool IsDownloading       { get; private set; }
 
         #endregion
 
@@ -155,16 +142,19 @@
         public void StartServer()
         {
             // Check if server is allready running
-            if (ServerState == ServerStates.Online)
+            if (ServerState != ServerStates.Offline)
             {
+                // Call the information event
                 OnServerInformation("Server is already running", Responses.Warning);
+
+                // Cancel the server setup
                 return;
             } 
 
             // Set server state
             ServerState = ServerStates.StartingUp;
-            
-            IsDownloading = false;
+
+            #region Server socket setup
 
             // Create the socket object
             ServerSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -172,18 +162,29 @@
             ServerSocket.Bind(EndPoint);
             // Begin listening
             ServerSocket.Listen(ServerBacklog);
-
             // Begin accepting connections async
             ServerSocket.BeginAccept(new AsyncCallback(ServerAcceptCallback), null);
 
-            // Prepare the file transfer socket
+            #endregion
+
+            #region Filetransfer socket setup
+
+            // Create downloadingsocket
+            FileTransferSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);            
+            // Bind the file transfer socket
             FileTransferSocket.Bind(DownloadingEndPoint);
+            // Begin listening
             FileTransferSocket.Listen(3);
+            // Create a 10mb downloading-buffer
+            DownloadingBuffer = new byte[10400];
 
-            // Startup was successful >>
+            #endregion
+
+            // Set bound client to none
+            BoundClient = -1;
+            // Set the serverstate to 'Running'
             ServerState = ServerStates.Online;
-
-            // Call the event
+            // Call the information event
             OnServerInformation("Server is now running", Responses.OK);
         }
 
@@ -192,26 +193,26 @@
         /// </summary>
         public void StopServer()
         {
-            // Return if the server is not running
+            // Check if server is running
             if(ServerState == ServerStates.Offline)
             {
                 OnServerInformation("The server is not running", Responses.Warning);
+                // Do nothing
                 return;
             }
 
-            // Closer all actice connections
+            // Closer all active connections
             foreach (var Client in ActiveConnections)
                 Client.ClientConnection.Close();
 
-            ActiveConnections.Clear();
-
-            // Close the socket
+            // Close all sockets
             ServerSocket.Close();
+            FileTransferSocket.Close();
 
-            // Startup complete >>
+            // Set the serverstate to offline
             ServerState = ServerStates.Offline;
 
-            // Call the event
+            // Call the information event
             OnServerInformation("Server has been shutdown", Responses.OK);
         }
 
@@ -266,6 +267,16 @@
             }
             // Get the bound client
             var Client = ActiveConnections.First(c => c.ID.Equals(BoundClient));
+
+            // Create a hasher
+            var Hasher = SHA256.Create();
+
+            // Compute and sign the hashed message
+            var SignedHash = Client.Decryptor.SignHash(Hasher.ComputeHash(Encoding.Default.GetBytes(Message)),
+                                                                          HashAlgorithmName.SHA256,
+                                                                          RSASignaturePadding.Pkcs1);
+            // Send the signed hash
+            Client.ClientConnection.Send(SignedHash);
 
             // Send the data length
             Client.ClientConnection.Send(Client.Encryptor.Encrypt( Encoding.Default.GetBytes(
@@ -336,34 +347,15 @@
         /// </summary>
         private void Initialize()
         {
-            #region Prepare server
-            // Create the endpoing
+            // Set the server endpoint
             EndPoint = new IPEndPoint(IPAddress.Any, ListeningPort);
-
-            // Set bound client to none
-            BoundClient = -1;
-
-            // Set the handshake string
-            HandShakeString = String.Empty;
-
+            // Set the filetransfer endpoint
+            DownloadingEndPoint = new IPEndPoint(IPAddress.Any, 401); 
             // Create empty connections list
-            ActiveConnections = new ThreadSafeObservableCollection<Connection>();
+            ActiveConnections = new ThreadSafeObservableCollection<ConnectionViewModel>();
 
-            // Set serverstate to offline
+            // Set serverstate to 'offline'
             ServerState = ServerStates.Offline;
-            #endregion
-
-            #region Downloading socket setup
-            // Create downloadingsocket
-            FileTransferSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-
-            // Create a 10mb buffer
-            DownloadingBuffer = new byte[10400];
-
-            // Create encpoint for the downloading socket
-            DownloadingEndPoint = new IPEndPoint(IPAddress.Any, 401);
-
-            #endregion
         }
 
         #endregion
@@ -387,7 +379,7 @@
         /// Event callback
         /// </summary>
         /// <param name="Client"></param>
-        protected virtual void OnDataReceived(Connection Client, string Data)
+        protected virtual void OnDataReceived(ConnectionViewModel Client, string Data)
         {
             // Fire the event
             NewDataReceived(this, new ClientInformationEventArgs() { Client = Client, Data = Data, InformationTimeStamp = DateTime.Now.ToString() });
@@ -399,7 +391,7 @@
         /// <param name="FileName"></param>
         /// <param name="FileSize"></param>
         /// <param name="ActualSize"></param>
-        protected virtual void OnDownloadInformatin(string FileName, long FileSize, long ActualSize)
+        protected virtual void OnDownloadInformation(string FileName, long FileSize, long ActualSize)
         {
             DownloadInformation?.Invoke(this, new FileDownloadInformationEventArgs() { FileName = FileName, FileSize = FileSize, ActualFileSize = ActualSize });
         }
@@ -422,19 +414,15 @@
 
                 try
                 {
-                    byte[] Handshake = new byte[4];
-                    s.Receive(Handshake);
-                    if (Encoding.Default.GetString(Handshake) != "[VF]")
-                        throw new InvalidHandshakeException(s);
-
                     // Create the Client obejct
-                    var ClientConnection = new Connection()
+                    var ClientConnection = new ConnectionViewModel()
                     {
                         ClientConnection  = s,
                         Verified          = true,
                         AutorisationLevel = 0,
                         CurrentDataSize   = 0,
-                        DataBuffer        = new byte[BufferSize]
+                        DataBuffer        = new byte[BufferSize],
+                        CurrentDataSignature = new byte[0]
                     };
 
                     // Create placeholder for the clients public key
@@ -455,7 +443,7 @@
 
                         // Resize to the correct size before importing
                         Array.Resize(ref PK, len);
-                        ClientConnection.Encryptor.ImportRSAPublicKey(PK, out int l);
+                        ClientConnection.Encryptor.ImportRSAPublicKey(PK, out int _ );
                     } // <<
 
                     // Begin listening to the client
@@ -501,39 +489,29 @@
         /// <param name="ar"></param>
         private void ServerReceiveCallback(IAsyncResult ar)
         {
-            // Get the socket
-            Socket Client = (Socket)ar.AsyncState;
             // Get the conenction object from the list of active connections
-            var ClientVM = ActiveConnections.FirstOrDefault(c => c.ClientConnection.Equals(Client));
+            var _client = ActiveConnections.FirstOrDefault(c => c.ClientConnection.Equals((Socket)ar.AsyncState));
 
-            // Server is shutting down if this is null
-            if (ClientVM == null) return;
-
-            // Holds the amount of bytes received
-            int Rec = 0;
-
-            // Get the amount of bytes received
-            try { Rec = Client.EndReceive(ar); }
-
-            // This will fail if the client disconnects
-            catch
+            // If server is shuting down
+            if (_client.ClientConnection.Connected == false) 
             {
-                // Call the event
-                OnServerInformation($"{Client.RemoteEndPoint} disconnected", Responses.Information);
                 // Close the connection
-                Client.Close();
+                _client.ClientConnection.Close();
                 // Remove client from the list of active connections
-                ActiveConnections.Remove(ClientVM);
+                ActiveConnections.Remove(_client);
 
                 // Return and kill this thread
                 return;
             }
 
+            // Holds the amount of bytes received
+            int Rec = _client.ClientConnection.EndReceive(ar);
+
             // Check if empty byte packet was sent
             if (Rec > 0)
             {
                 // Create new buffer and resize it to the correct size
-                byte[] ReceivedBytes = ClientVM.DataBuffer;
+                byte[] ReceivedBytes = _client.DataBuffer;
                 Array.Resize(ref ReceivedBytes, Rec);
 
                 // Loop through all of the packets in the buffer (We know that the packets will be 256 bytes long)
@@ -543,35 +521,62 @@
                     byte[] _packet = ReceivedBytes[new Range(PacketStart, PacketStart + 256)];
 
                     // Check if is is the first packet in the buffer
-                    if (ClientVM.CurrentDataSize.Equals(0))
+                    if (_client.CurrentDataSize.Equals(0))
                     {
-                        /* Then this packet will cantain the size
-                         * of the data that will be received
-                         */
 
-                        // Get the expected data size
-                        ClientVM.CurrentDataSize = long.Parse( Encoding.Default.GetString(
-                                                               ClientVM.Decryptor.Decrypt(
-                                                               _packet, true)));
-                        // Empty the client's datastring
-                        ClientVM.CurrentDataString = String.Empty;
+                        // The signature needs to be received first
+                        if (_client.CurrentDataSignature.Length.Equals(0))
+                        {
+                            // Save the signature for comparison later
+                            _client.CurrentDataSignature = _packet;
+                        }
+                        else
+                        {
+                            // Get the expected data size
+                            _client.CurrentDataSize = long.Parse(Encoding.Default.GetString(
+                                                                  _client.Decryptor.Decrypt(
+                                                                  _packet, true)));
+                            // Empty the client's datastring
+                            _client.CurrentDataString = String.Empty;
+                        }
                     }
                     // Keep adding the data to the datastring
                     else
                     {
                         // Decrypt the packet and add it to the datastring
-                        ClientVM.CurrentDataString += Encoding.Default.GetString(
-                                                      ClientVM.Decryptor.Decrypt(
+                        _client.CurrentDataString += Encoding.Default.GetString(
+                                                      _client.Decryptor.Decrypt(
                                                       _packet, true));
 
                         // Check if all btyes has been received
-                        if (ClientVM.CurrentDataString.Length == ClientVM.CurrentDataSize)
+                        if (_client.CurrentDataString.Length == _client.CurrentDataSize)
                         {
-                            // Call the event
-                            OnDataReceived(ClientVM, ClientVM.CurrentDataString);
+                            // Create a hasher
+                            var Hasher = SHA256.Create();
 
-                            // Reset the datasize
-                            ClientVM.CurrentDataSize = 0;
+                            // Hash the received data
+                            var Hash = Hasher.ComputeHash(Encoding.Default.GetBytes(_client.CurrentDataString));
+
+                            // Verify the signed hash with the computed hash
+                            if (_client.Encryptor.VerifyHash(Hash, _client.CurrentDataSignature,
+                                                             HashAlgorithmName.SHA256,
+                                                             RSASignaturePadding.Pkcs1))
+                            {
+                                // Call the event
+                                OnDataReceived(_client, _client.CurrentDataString);
+
+                                // Reset the datasize
+                                _client.CurrentDataSize = 0;
+                            }
+                            else
+                            {
+                                // Send a warning
+                                OnServerInformation($"A message was received from {_client.ClientConnectionString} but the received " +
+                                    $"signature could not be verified.\nData: {_client.CurrentDataString}", Responses.Warning);
+                            }
+
+                            // Clear the signature
+                            _client.CurrentDataSignature = new byte[0];
                         }
                     }
 
@@ -579,23 +584,10 @@
             }
 
             // Begin to receive more data
-            Client.BeginReceive(ClientVM.DataBuffer, 0, BufferSize,
-                                                        SocketFlags.None,
-                                                        new AsyncCallback(ServerReceiveCallback),
-                                                        Client);
-        }
-
-        /// <summary>
-        /// Callback for when the server sent data to a client
-        /// </summary>
-        /// <param name="ar"></param>
-        private void ServerSendCallback(IAsyncResult ar)
-        {
-            // Get the socket that was sent to the callback
-            Socket s = (Socket)ar.AsyncState;
-
-            // Get the lenght of the sent bytes
-            int SentLength = s.EndSend(ar);
+            _client.ClientConnection.BeginReceive(_client.DataBuffer, 0, BufferSize,
+                                                       SocketFlags.None,
+                                                       new AsyncCallback(ServerReceiveCallback),
+                                                       _client.ClientConnection);
         }
 
         #endregion
@@ -611,7 +603,7 @@
         private void DownloadAcceptCallback(IAsyncResult ar)
         {
             // Create new temp client vm
-            Connection vm = new Connection() { 
+            ConnectionViewModel vm = new ConnectionViewModel() { 
                                  ClientConnection = FileTransferSocket.EndAccept(ar), 
                                  ID = (int)ar.AsyncState };
 
@@ -704,7 +696,7 @@
                         bool res = FileHandler.WriteBytes(EncryptedBlock);
 
                         // Call the event
-                        OnDownloadInformatin(FileHandler.FileName, FileHandler.FileSize, FileHandler.ActualSize);
+                        OnDownloadInformation(FileHandler.FileName, FileHandler.FileSize, FileHandler.ActualSize);
 
                         // Check if all bytes are received
                         if (res)

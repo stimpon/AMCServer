@@ -25,20 +25,4 @@
         /// </summary>
         Online
     }
-
-    /// <summary>
-    /// All services that the server provides for the clients
-    /// </summary>
-    public enum ClientServices
-    {
-        /// <summary>
-        /// serverclient
-        /// </summary>
-        AMCClient,
-
-        /// <summary>
-        /// Cryptochat service
-        /// </summary>
-        Transparent
-    }
 }

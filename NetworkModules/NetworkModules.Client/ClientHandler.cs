@@ -93,6 +93,11 @@
         private long CurrentDataSize;
 
         /// <summary>
+        /// Signature of the message that is being received
+        /// </summary>
+        private byte[] CurrentSignature;
+
+        /// <summary>
         /// Current data stream
         /// </summary>
         private string CurrentDataString;
@@ -169,24 +174,34 @@
         /// <param name="Message"></param>
         public void Send(string Message)
         {
+            // Create a hasher
+            var Hasher = SHA256.Create();
+
+            // Compute and sign the hashed message
+            var SignedHash = Decryptor.SignHash(Hasher.ComputeHash(Encoding.Default.GetBytes(Message)), 
+                                                                   HashAlgorithmName.SHA256, 
+                                                                   RSASignaturePadding.Pkcs1);
+            // Send the signed hash
+            ServerConnection.Send(SignedHash);
+
             // Send the data length
             ServerConnection.Send(Encryptor.Encrypt( Encoding.Default.GetBytes(
                                                      (Message.Length).ToString()), 
                                                      true));
 
             // Split up the data into 100 byte chunks
-            for(int Length = 0; Length < Message.Length; Length += 100)
+            for(int Length = 0, index = 0; Length < Message.Length; Length += 124, index++)
             {
                 // Packet that will be sent
                 byte[] _packet;
 
                 // Check if this will be the last packet
-                if ((Length + 100) >= Message.Length)
+                if ((Length + 124) >= Message.Length)
                      _packet = Encryptor.Encrypt(
                         Encoding.Default.GetBytes(Message[new Range(Length, Message.Length)]), true);
                 else
                     _packet = Encryptor.Encrypt(
-                        Encoding.Default.GetBytes(Message[new Range(Length, Length + 100)]), true);
+                        Encoding.Default.GetBytes(Message[new Range(Length, Length + 124)]), true);
 
                 // Send the data
                 ServerConnection.Send(_packet);
@@ -216,7 +231,7 @@
 
         #endregion
 
-        #region Private functins
+        #region Private functions
 
         /// <summary>
         /// Initialize the server
@@ -226,6 +241,9 @@
             // Setup server buffer
             GlobalBufferSize = 10240;
             GlobalBuffer = new byte[GlobalBufferSize];
+
+            // Setup the signature array
+            CurrentSignature = new byte[0];
 
             Decryptor = new RSACryptoServiceProvider(2048);
             Encryptor = new RSACryptoServiceProvider(2048);
@@ -313,11 +331,6 @@
         {
             try
             {
-                // End connect
-                ServerConnection.EndConnect(ar);
-
-                ServerConnection.Send(Encoding.Default.GetBytes("[VF]"));
-
                 // Receive Server's public key
                 { // >>
                     byte[] PK = new byte[500];
@@ -371,7 +384,7 @@
             // Get the amount of bytes received
             try { rec = s.EndReceive(ar); }
 
-            // This will fail if the server shutdowns
+            // This will fail if the server is shuting down
             catch
             {                 
                 // Close the socket
@@ -403,17 +416,21 @@
                     // Check if it is the first packet in the stream
                     if (CurrentDataSize.Equals(0))
                     {
-                        /* Then this packet will cantain the size
-                         * of the data that will be received
-                         */
-
-                        // Get the expected data size
-                        CurrentDataSize = long.Parse(Encoding.Default.GetString(
-                                                      Decryptor.Decrypt(
-                                                      _packet, true)));
-
-                        // Empty the datastring
-                        CurrentDataString = String.Empty;
+                        // The signature needs to be received first
+                        if (CurrentSignature.Length.Equals(0))
+                        {
+                            // Save the signature for comparison later
+                            CurrentSignature = _packet;
+                        }
+                        else
+                        {
+                            // Get the expected data size
+                            CurrentDataSize = long.Parse(Encoding.Default.GetString(
+                                                         Decryptor.Decrypt(
+                                                         _packet, true)));
+                            // Empty the datastring
+                            CurrentDataString = String.Empty;
+                        }
 
                     }
                     // Keep adding the data to the data stream
@@ -427,11 +444,32 @@
                         // Check if all btyes has been received
                         if (CurrentDataString.Length == CurrentDataSize)
                         {
-                            // Call the event
-                            OnDataReceived(CurrentDataString);
+                            // Create a hasher
+                            var Hasher = SHA256.Create();
 
-                            // Reset the datsize
-                            CurrentDataSize = 0;
+                            // Hash the received data
+                            var Hash = Hasher.ComputeHash(Encoding.Default.GetBytes(CurrentDataString));
+
+                            // Verify the signed hash with the computed hash
+                            if (Encryptor.VerifyHash(Hash, CurrentSignature,
+                                                           HashAlgorithmName.SHA256,
+                                                           RSASignaturePadding.Pkcs1))
+                            {
+                                // Call the event
+                                OnDataReceived(CurrentDataString);
+
+                                // Reset the datsize
+                                CurrentDataSize = 0;
+                            }
+                            else
+                            {
+                                // Send a warning
+                                OnClientInformation($"A message was received but the " +
+                                    $"signature could not be verified.\nData: {CurrentDataString}", Responses.Warning);
+                            }
+
+                            // Clear the signature
+                            CurrentSignature = new byte[0];
                         }
                     }
                 }

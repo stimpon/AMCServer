@@ -93,6 +93,7 @@
             if (ProgramState.IsRunning)
                 // Call the Init method when a new instance of this VM is created
                 Initialize();
+
         }
 
         #region Functions

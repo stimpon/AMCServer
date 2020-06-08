@@ -13,7 +13,7 @@
     /// <summary>
     /// Model of the Client
     /// </summary>
-    public class Connection : INotifyPropertyChanged
+    public class ConnectionViewModel : INotifyPropertyChanged
     {
         /// <summary>
         /// Occurs when a property value changes.
@@ -24,11 +24,6 @@
         /// Client ID
         /// </summary>
         public int ID { get; set; }
-
-        /// <summary>
-        /// The service that the client uses
-        /// </summary>
-        public ClientServices Service { get; set; }
 
         /// <summary>
         /// Connection timestring
@@ -43,7 +38,7 @@
         /// <summary>
         /// Reads the remote ip from the socket
         /// </summary>
-        public string ClientConnectionString => ClientConnection.RemoteEndPoint.ToString();
+        public string ClientConnectionString { get => ClientConnection.RemoteEndPoint.ToString(); }
 
         /// <summary>
         /// This client's global data buffer
@@ -54,6 +49,11 @@
         /// Size of the data that is currently been received
         /// </summary>
         public long CurrentDataSize { get; set; }
+
+        /// <summary>
+        /// Size of the data that is currently been received
+        /// </summary>
+        public byte[] CurrentDataSignature { get; set; }
 
         /// <summary>
         /// The currently decrypted data

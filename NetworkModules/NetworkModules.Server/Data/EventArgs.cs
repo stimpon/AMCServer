@@ -10,7 +10,7 @@
         /// <summary>
         /// The client
         /// </summary>
-        public Connection Client { get; set; }
+        public ConnectionViewModel Client { get; set; }
 
         /// <summary>
         /// Timestamp

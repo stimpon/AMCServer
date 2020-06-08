@@ -10,7 +10,6 @@
     using System.Collections.Specialized;
     using System.ComponentModel;
     using PropertyChanged;
-
     #endregion
 
     /// <summary>
@@ -23,6 +22,7 @@
     [DoNotNotify]
     public class ThreadSafeObservableCollection<T> : 
                  ObservableCollection<T> {
+
         /// <summary>
         /// The thead that the collection was created on
         /// </summary>
