@@ -1,13 +1,10 @@
 ﻿namespace AMCClient2
 {
-    /// <summary>
-    /// Required namespaces
-    /// </summary>
-    #region Namespaces
+    // Required namespaces
     using System;
     using System.Globalization;
     using System.Windows;
-    #endregion
+    using AMCCore;
 
     /// <summary>
     /// Converter that returns a defined static resource

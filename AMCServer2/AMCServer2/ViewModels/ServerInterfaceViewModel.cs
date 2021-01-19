@@ -1,20 +1,20 @@
 ﻿namespace AMCServer2
 {
-    /// <summary>
-    /// Required namespaces
-    /// </summary>
-    #region Namespaces
+    // Required namespaces
     using System;
     using System.IO;
+    using System.Linq;
+    using System.Security.AccessControl;
+    using System.Security.Principal;
+    using System.Windows.Input;
     using NetworkModules.Core;
     using NetworkModules.Server;
-    #endregion
+    using AMCCore;
 
     /// <summary>
     /// ViewModel for the ServerView
     /// </summary>
-    public class ServerInterfaceViewModel : 
-                 BaseViewModel
+    public class ServerInterfaceViewModel : BaseViewModel
     {
         #region Public Properties
 
@@ -22,23 +22,48 @@
         /// Single instance of this ViewModel
         /// </summary>
         public static ServerInterfaceViewModel VM { get; set; }
-        
+
+        /// <summary>
+        /// This is the serverlog that will be displayed in the server console
+        /// </summary>
+        public ThreadSafeObservableCollection<ILogMessage> ServerLog { get; set; }
+
+        /// <summary>
+        /// These are the items that will be displayed in the explorer
+        /// </summary>
+        public ThreadSafeObservableCollection<FileExplorerObject> ExplorerItems { get; set; }
+
+        /// <summary>
+        /// The current path in the explorer
+        /// </summary>
+        public string CurrentPathOnClientPC { get; set; }
+
+        /// <summary>
+        /// The string that is linked to the command box
+        /// </summary>
+        public string CommandString { get; set; } = String.Empty;
+
         #region Commands
 
         /// <summary>
         /// When a command is exeuted in the terminal
         /// </summary>
-        public RelayCommandNoParameters ExecuteCommand { get; set; }
+        public ICommand ExecuteCommand { get; set; }
 
         /// <summary>
         /// When an item is double clicked on in the explorer
         /// </summary>
-        public RelayCommand ExplorerDoubleClick { get; set; }
+        public ICommand ExplorerDoubleClick { get; set; }
 
         /// <summary>
         /// When the download button is clicked on in the explorer
         /// </summary>
-        public RelayCommand DownloadFileClick { get; set; }
+        public ICommand DownloadFileClick { get; set; }
+
+        /// <summary>
+        /// When to show the previous command
+        /// </summary>
+        public ICommand PreviousCommand { get; set; }
 
         #endregion
 
@@ -63,32 +88,26 @@
 
         #endregion
 
-        /// <summary>
-        /// This is the serverlog that will be displayed in the server console
-        /// </summary>
-        public ThreadSafeObservableCollection<ILogMessage> ServerLog { get; set; }
+        #endregion
+
+        #region Private members
 
         /// <summary>
-        /// These are the items that will be displayed in the explorer
+        /// The current position in the <see cref="CommandHistory"/>
         /// </summary>
-        public ThreadSafeObservableCollection<FileExplorerObject> ExplorerItems { get; set; }
+        private int CurrentCommandIndex { get; set; } = 0;
 
         /// <summary>
-        /// The current path in the explorer
+        /// Array to save all executed commands
         /// </summary>
-        public string CurrentPathOnClientPC { get; set; }
-
-        /// <summary>
-        /// The string that is linked to the command box
-        /// </summary>
-        public string CommandString  { get;  set; } = String.Empty;
+        private string[] CommandHistory;
 
         #endregion
 
         /// <summary>
         /// Default constructor
-        public ServerInterfaceViewModel()
         /// </summary>
+        public ServerInterfaceViewModel()
         {
             if (ProgramState.IsRunning)
                 // Call the Init method when a new instance of this VM is created
@@ -107,6 +126,9 @@
             // Set the accessable ViewModel to this class
             VM = this;
 
+            // Initialize a new command history
+            CommandHistory = new string[0];
+
             // This is the standard message that shows when the program starts
             ServerLog = new ThreadSafeObservableCollection<ILogMessage>() {
                 new LogMessage() { Content = "AMCServer [Version 1.0.0]", ShowTime = false, Type = Responses.Information } ,
@@ -122,6 +144,8 @@
             ExplorerDoubleClick = new RelayCommand(NavigateEvent, (o) => { return true; });
             // Download command
             DownloadFileClick   = new RelayCommand(DownloadEvent);
+            // Previous command command
+            PreviousCommand = new RelayCommandNoParameters(PreviousCommandEvent);
 
             #endregion
 
@@ -137,39 +161,80 @@
         /// </summary>
         private void ResolveCommand()
         {
-            // Check if input command
+            #region Commands with flags
 
             // :bind + [ID] >> Bind the server to a client
-            if(CommandString.ToLower().StartsWith(":bind "))
+            if (CommandString.ToLower().StartsWith(":bind "))
             {
                 // Try to parse the argument into an int
                 if (int.TryParse(CommandString.Substring(5), out int ID))
                     Container.GetSingleton<ServerHandler>().BindServer(ID);
                 else
-                    ServerLog.Add(new LogMessage() { Content  = $"'{CommandString.Substring(5)}' is an invalid ID", 
+                    ServerLog.Add(new LogMessage() { Content  = $"'{CommandString[5..]}' is an invalid ID", 
                                                   ShowTime = false, 
                                                   Type     = Responses.Error });
             }
+            // :setpriv [ID] [PL] >> Set privileges for an active connection
+            else if (CommandString.ToLower().StartsWith(":setpriv "))
+            {
+                // Extract substrings from command
+                var commandFlags = CommandString.Split(' ')[1..];
 
-            // Check if standalone command
+                // If a corrent client id was specified and a corrent privilege digit was specified
+                if (commandFlags.Length.Equals(2) && int.TryParse(commandFlags[0], out int id))
+                {
+                    bool requestFulfilled = false, privilegesLoaded = false;
+
+                    // Load the provided privilege from the privilege set
+                    privilegesLoaded = Enum.TryParse(typeof(Permissions), commandFlags[1], true, out object newPrivileges);
+
+                    // If the privilege is in the priviilege-set
+                    if(privilegesLoaded)
+                        // tell server to change privileges for the specified client if valid privileges was provided
+                        requestFulfilled = Container.GetSingleton<ServerHandler>().SetClientPrivileges(id, (Permissions)newPrivileges);
+
+                    // If the command executed successful
+                    if (requestFulfilled)
+                    {
+                        // Tell that client that he now has new privileges
+                        Container.GetSingleton<ServerHandler>().Send($"New privileges was set for you by the server- { commandFlags[1].ToUpper() }", id);
+
+                        // Display message
+                        ServerLog.Add(new LogMessage() { Content = $"New privileges was set for client {id}- { commandFlags[1].ToUpper() }", Type = Responses.OK });
+                    }
+                    // If privileges could not be set
+                    else
+                        // Display error message
+                        ServerLog.Add(new LogMessage() { Content = $"Client {id} was not found, or a bad privileges was provided", Type = Responses.Error });
+                }
+                // Else if the command had invalid or to few flags...
+                else
+                    // Display error message
+                    ServerLog.Add(new LogMessage() { Content = $"Invalid or to few command flags, check :help", Type = Responses.Error });
+            }
+
+            #endregion
+
+            #region Commands without flags
+
             else
             {
+                // Check the command (NOT CASE SENSITIVE)
                 switch (CommandString.ToLower())
                 {
-                    /* :cls >> Clear the console
-                     */
+                    // :cls >> Clear the console                   
                     case ":cls": ServerLog.Clear(); break;
 
-                    /* :start >> Start the server
-                     */
+                    // :start >> Start the server
                     case ":start": Container.GetSingleton<ServerHandler>().StartServer(); break;
 
-                    /* :stop >> Stop the server
-                     */
+                    // :stop >> Stop the server
                     case ":stop": Container.GetSingleton<ServerHandler>().StopServer(); break;
 
+                    // :unbind >> unbind the server from the currently bound client
                     case ":unbind": Container.GetSingleton<ServerHandler>().UnbindServer(); break;
 
+                    // :getdrives >> Query drive info from the bound client
                     case ":getdrives":
                         // Prepare the explorer
                         ExplorerItems.Clear();
@@ -179,10 +244,11 @@
                         Container.GetSingleton<ServerHandler>().Send("[DRIVES]");
                         break;
 
-                    /* :help >> Provide help information
-                     */
+                    // :help >> Provide help information
                     case ":help":
+                        // Read all lines from the help file
                         foreach (string ch in File.ReadAllLines(Environment.CurrentDirectory + "\\Program Files\\Commands.txt"))
+                            // Display each line correctly in the terminal
                             ServerLog.Add(new LogMessage()
                             {
                                 Content = ch,
@@ -195,10 +261,11 @@
                         return;
                 }
             }
+            #endregion
         }
 
         /// <summary>
-        /// When a message is sent from the server, print it to the terminal
+        /// When the <see cref="ServerHandler"/> raises a message
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -230,7 +297,7 @@
                                               Type = Responses.Information });
             }
 
-            #region Navigation
+            #region When you navigates a client's PC
 
             // Client sent a HDD object
             if (e.Data.StartsWith("[DRIVE]"))
@@ -276,6 +343,23 @@
             }
 
             #endregion
+
+            #region When the client navigates this PC
+
+            // Client must have atleast read permissions to navigate the server PC
+            else if (e.Client.ServerPermissions > 0)
+            {
+                // If the server wants drive info...
+                if (e.Data.StartsWith("[DRIVES]")) SendDrivesToClient(e.Client.ID);
+                // If the server wants to navigate...
+                else if (e.Data.StartsWith("[NAV]")) SendPathItems(e.Data.Substring(5), e.Client.ID);
+            }
+
+            // Else if the client does not have the required permissions
+            else
+                Container.GetSingleton<ServerHandler>().Send($"Request was denied", e.Client.ID);
+
+            #endregion
         }
 
         /// <summary>
@@ -310,6 +394,12 @@
 
             // Don't hande the command resolve action here
             ResolveCommand();
+
+            // Add one slot to the command history
+            Array.Resize(ref CommandHistory, CommandHistory.Length + 1);
+
+            // Add the current command to the history after execution
+            CommandHistory[CommandHistory.Length - 1] = CommandString;
 
             // Clear the Input line
             CommandString = String.Empty;
@@ -360,6 +450,88 @@
 
             // Send downloading request
             Container.GetSingleton<ServerHandler>().Send($"[DOWNLOAD]{CurrentPathOnClientPC}\\{Item.Name}");
+        }
+
+        /// <summary>
+        /// Is called when the up key is pressed
+        /// </summary>
+        private void PreviousCommandEvent()
+        {
+            // Return if there are no commands in the command history
+            if (CommandHistory.Length < 1) return;
+
+            // Reset the CommandIndex if it is at the end of the history
+            if (CurrentCommandIndex < 0) CurrentCommandIndex = CommandHistory.Length - 1;
+
+            // Set the current command to the previous one in the history
+            CommandString = CommandHistory[CurrentCommandIndex];
+
+            // Go back one step in the history
+            CurrentCommandIndex--;
+        }
+
+
+        /// <summary>
+        /// Send all servers to the servers
+        /// </summary>
+        private void SendDrivesToClient(int ClientID)
+        {
+            // Get all fixed drives from the PC
+            var Drives = DriveInfo.GetDrives().Where(d => d.DriveType == DriveType.Fixed);
+
+            // Loop through all drives
+            foreach (var drive in Drives)
+            {
+                Container.GetSingleton<ServerHandler>().Send($"[DRIVE]{drive.Name}|{drive.VolumeLabel}", ClientID);
+            }
+        }
+
+        /// <summary>
+        /// Navigate to a path
+        /// </summary>
+        /// <param name="path"></param>
+        private void SendPathItems(string path, int ClientID)
+        {
+            // Read all directories from the requested path
+            var Folders = Directory.GetDirectories(path);
+            // Read all files from the requested path
+            var Files = Directory.GetFiles(path);
+
+            // Loop through all folders and send them to the server
+            foreach (var Folder in Folders)
+            {
+                // Tells the server if read permissions is allowed
+                bool PermissionsDenied = true;
+
+                try
+                {
+                    // Test if access is denied
+                    Directory.GetFiles(Folder);
+
+                    // Get the access rules for that folder
+                    var rules = new FileInfo(Folder).GetAccessControl()
+                                                    .GetAccessRules(true,
+                                                                    true,
+                                                                    typeof(SecurityIdentifier));
+                    // Check if read permissions are allowed
+                    if (rules != null)
+                        foreach (FileSystemAccessRule rule in rules)
+                            if ((FileSystemRights.Read & rule.FileSystemRights) == FileSystemRights.Read)
+                                if (rule.AccessControlType == AccessControlType.Allow)
+                                    PermissionsDenied = false;
+                }
+                catch { }
+
+                Container.GetSingleton<ServerHandler>().Send($"[FOLDER]" +
+                    $"{Path.GetFileName(Folder)}|{PermissionsDenied}", ClientID);
+            }
+            // Loop through all files and send them to the server
+            foreach (var File in Files)
+            {
+                FileInfo f = new FileInfo(File);
+                Container.GetSingleton<ServerHandler>().Send($"[FILE]" +
+                    $"{f.Name}|{f.Extension}|{f.Length}", ClientID);
+            }
         }
 
         #endregion

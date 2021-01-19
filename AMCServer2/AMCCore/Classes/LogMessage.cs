@@ -1,4 +1,4 @@
-﻿namespace AMCServer2
+﻿namespace AMCCore
 {
     using NetworkModules.Core;
 

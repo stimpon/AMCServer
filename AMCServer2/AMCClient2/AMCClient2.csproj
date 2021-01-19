@@ -18,6 +18,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\NetworkModules\NetworkModules.Client\NetworkModules.Client.csproj" />
     <ProjectReference Include="..\..\NetworkModules\NetworkModules.Core\NetworkModules.Core.csproj" />
+    <ProjectReference Include="..\AMCCore\AMCCore.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -48,6 +49,10 @@
     <Page Update="Views\Styles\Strings.xaml">
       <SubType>Designer</SubType>
     </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Models\" />
   </ItemGroup>
 
 </Project>

@@ -7,6 +7,7 @@
     using System;
     using System.IO;
     using System.Linq;
+    using NetworkModules.Core;
     #endregion
 
     /// <summary>
@@ -18,15 +19,23 @@
     {
         /// <summary>
         /// Contains all file paths
+        /// All config files should exist inside Program Files/Config Files/ *Config File
         /// </summary>
         #region File paths
 
-        /// <summary>
-        /// Path to the server config file
-        /// </summary>
+        /// <value>
+        /// The server properties configuration file path.
+        /// </value>
         public static string ServerPropertiesConfigFilePath 
             => 
-        Environment.CurrentDirectory + "\\Program Files\\Config Files\\server.cfg";
+            Environment.CurrentDirectory + "\\Program Files\\Config Files\\server.cfg";
+
+        /// <summary>
+        /// Gets the client privileges file path.
+        /// </summary>
+        public static string ClientPrivilegesFilePath
+            =>
+            Environment.CurrentDirectory + "\\Program Files\\Config Files\\client_privileges.cfg"; 
 
         #endregion
 
@@ -42,7 +51,7 @@
         /// <returns>Returns listening_port's value</returns>
         public static int GetServerPort()
             =>
-        Convert.ToInt32(File.ReadAllLines(ServerPropertiesConfigFilePath).First(l => l.StartsWith("listening_port")).Split(':')[1]);
+            Convert.ToInt32(File.ReadAllLines(ServerPropertiesConfigFilePath).First(l => l.StartsWith("listening_port")).Split(':')[1]);
 
         /// <summary>
         /// Reads the server backlog from the server config file
@@ -50,7 +59,7 @@
         /// <returns>Returns server_backlog's value</returns>
         public static int GetServerBacklog()
             =>
-        Convert.ToInt32(File.ReadAllLines(ServerPropertiesConfigFilePath).First(l => l.StartsWith("server_backlog")).Split(':')[1]);
+            Convert.ToInt32(File.ReadAllLines(ServerPropertiesConfigFilePath).First(l => l.StartsWith("server_backlog")).Split(':')[1]);
 
         /// <summary>
         /// Reads the buffer size from the server config file
@@ -58,7 +67,7 @@
         /// <returns>Returns buffer_size's value</returns>
         public static int GetServerBufferSize()
             =>
-        Convert.ToInt32(File.ReadAllLines(ServerPropertiesConfigFilePath).First(l => l.StartsWith("buffer_size")).Split(':')[1]);
+            Convert.ToInt32(File.ReadAllLines(ServerPropertiesConfigFilePath).First(l => l.StartsWith("buffer_size")).Split(':')[1]);
 
         /// <summary>
         /// Reads the FTP port from the server config file
@@ -66,7 +75,7 @@
         /// <returns>Returns buffer_size's value</returns>
         public static int GetFTPPort()
             =>
-        Convert.ToInt32(File.ReadAllLines(ServerPropertiesConfigFilePath).First(l => l.StartsWith("ftp_port")).Split(':')[1]);
+            Convert.ToInt32(File.ReadAllLines(ServerPropertiesConfigFilePath).First(l => l.StartsWith("ftp_port")).Split(':')[1]);
 
         #endregion
     }

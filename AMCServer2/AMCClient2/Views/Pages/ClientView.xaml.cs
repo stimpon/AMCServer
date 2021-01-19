@@ -22,5 +22,16 @@ namespace AMCClient2
         {
             InitializeComponent();
         }
+
+        /// <summary>
+        /// Fires when the page has loaded
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void BasePage_Loaded(object sender, RoutedEventArgs e)
+        {
+            // Focus on the console input box when the page is loaded
+            ConsoleInput.Focus();
+        }
     }
 }

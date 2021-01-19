@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:AMCClient2"
-        mc:Ignorable="d"
+        mc:Ignorable="d" IsTabStop="False"
         Title="MainWindow" Height="500" Width="1400">
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="30"/>
@@ -31,7 +31,7 @@
 
             <Border Grid.Row="1" Background="Black"/>
 
-            <Frame Grid.Row="2" Content="{Binding ApplicationViewModel.CurrentPage, Source={x:Static local:Container.Instance}, Converter={local:TypeToPageConverter}}"/>
+            <Frame Grid.Row="2" Content="{Binding ApplicationViewModel.CurrentPage, Source={x:Static local:Container.Instance}, Converter={local:TypeToPageConverter}}" IsTabStop="False"/>
 
         </Grid>
     </Border>

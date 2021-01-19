@@ -1,14 +1,10 @@
 ﻿namespace AMCClient2
 {
-    /// <summary>
-    /// Required namespaces
-    /// </summary>
-    #region Namespaces
+    // Required namespaces >>
     using System;
     using System.Globalization;
     using System.Windows.Data;
     using System.Windows.Markup;
-    #endregion
 
     /// <summary>
     /// Base converter for all other converters

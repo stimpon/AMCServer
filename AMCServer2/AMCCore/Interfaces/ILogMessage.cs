@@ -1,4 +1,4 @@
-﻿namespace AMCServer2
+﻿namespace AMCCore
 {
     /// <summary>
     /// Interface for the all items that will be displayed

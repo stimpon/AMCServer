@@ -1,12 +1,8 @@
 ﻿namespace AMCServer2
 {
-    /// <summary>
-    /// Required namespaces
-    /// </summary>
-    #region Namespaces
+    // Required namespaces >>
     using System;
     using System.Windows.Input;
-    #endregion
 
     /// <summary>
     /// RelayCommand that does not contain any parameters

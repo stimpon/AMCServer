@@ -1,9 +1,6 @@
 ﻿namespace AMCClient2
 {
-    /// <summary>
-    /// Required namespaces
-    /// </summary>
-    #region Namespaces
+    // Required namespaces
     using System;
     using System.Linq;
     using System.IO;
@@ -11,7 +8,8 @@
     using System.Security.Principal;
     using NetworkModules.Core;
     using NetworkModules.Client;
-    #endregion
+    using System.Windows.Input;
+    using AMCCore;
 
     /// <summary>
     /// ViewModel for the Client Interface
@@ -30,19 +28,22 @@
         /// <summary>
         /// When a command is exeuted in the terminal
         /// </summary>
-        public RelayCommandNoParameters ExecuteCommand { get; set; }
+        public ICommand ExecuteCommand { get; set; }
 
         /// <summary>
         /// When an item is double clicked on in the explorer
         /// </summary>
-        public RelayCommand ExplorerDoubleClick { get; set; }
+        public ICommand ExplorerDoubleClick { get; set; }
 
         /// <summary>
         /// When the download button is clicked on in the explorer
         /// </summary>
-        public RelayCommand DownloadFileClick { get; set; }
+        public ICommand DownloadFileClick { get; set; }
 
-        #endregion
+        /// <summary>
+        /// When the up key is pressed
+        /// </summary>
+        public ICommand PreviousCommand { get; set; }
 
         #region Current download properties
 
@@ -62,6 +63,8 @@
         /// String for the View
         /// </summary>
         public string ProgresString { get; set; }
+
+        #endregion
 
         #endregion
 
@@ -91,6 +94,20 @@
 
         #endregion
 
+        #region Private members
+
+        /// <summary>
+        /// The current position in the <see cref="CommandHistory"/>
+        /// </summary>
+        private int CurrentCommandIndex { get; set; } = 0;
+
+        /// <summary>
+        /// Array to save all executed commands
+        /// </summary>
+        private string[] CommandHistory;
+
+        #endregion
+
         /// <summary>
         /// Default constructor
         /// </summary>
@@ -112,16 +129,22 @@
             // Set the accessable ViewModel to this class
             VM = this;
 
+            // Create the command history
+            CommandHistory = new string[0];
+
             // This is the standard message that shows when the program starts
             ClientLog = new ThreadSafeObservableCollection<ILogMessage>() {
                 new LogMessage() { Content = "AMCClient [Version 1.0.0]", ShowTime = false, Type = Responses.Information } ,
                 new LogMessage() { Content = "(c) 2020 Stimpon",          ShowTime = false, Type = Responses.Information } ,
             };
+            ExplorerItems = new ThreadSafeObservableCollection<FileExplorerObject>();
 
             #region Create commands
 
             // Command for exetuting commands
             ExecuteCommand = new RelayCommandNoParameters(ExecuteCommandEvent);
+            // Previous command command
+            PreviousCommand = new RelayCommandNoParameters(PreviousCommandEvent);
 
             #endregion
 
@@ -141,7 +164,8 @@
             if (CommandString.ToLower().StartsWith(":msg "))
                 Container.Get<ClientHandler>().Send("[PRINT]" + CommandString.Substring(5));
 
-            // Check if standalone command
+            #region Commands without flags
+
             else
             {
                 switch (CommandString.ToLower())
@@ -149,12 +173,20 @@
                     // :connect >> Connect to the server
                     case ":connect": Container.Get<ClientHandler>().Connect(); break;
 
-                    /* :cls >> Clear the console
-                     */
+                    // :start >> Start the server
                     case ":cls": ClientLog.Clear(); break;
 
-                    /* :help >> Provide help information
-                     */
+                    // :getdrives >> Query drive info from the bound client
+                    case ":getdrives":
+                        // Prepare the explorer
+                        ExplorerItems.Clear();
+                        // Clear current path
+                        CurrentPathOnServerPC = String.Empty;
+                        // If the message was sent successfuly, clear the explorer to prepare it for the incoming data
+                        Container.Get<ClientHandler>().Send("[DRIVES]");
+                        break;
+
+                    // :help >> Provide help information
                     case ":help":
                         foreach (string ch in File.ReadAllLines(Environment.CurrentDirectory + "\\Program Files\\Commands.txt"))
                             ClientLog.Add(new LogMessage()
@@ -169,6 +201,8 @@
                         return;
                 }
             }
+
+            #endregion
 
         }
 
@@ -252,12 +286,13 @@
         }
 
         /// <summary>
-        /// When a message is sent from the server, print it to the terminal
+        /// When the <see cref="ClientHandler"/> raises a message
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
         private void OnClientInformation(object sender, InformationEventArgs e)
         {
+            // forward the message to the console
             ClientLog.Add(new LogMessage()
             {
                 Content = e.Information,
@@ -274,12 +309,77 @@
         /// <param name="Data"></param>
         private void OnDataReceived(object sender, string Data)
         {
+            #region When the server navigates this PC
+
+            // If the server wants drive info...
             if (Data.StartsWith("[DRIVES]"))
                 SendDrivesToServer();
-            if (Data.StartsWith("[NAV]"))
+            // If the server wants to navigate...
+            else if (Data.StartsWith("[NAV]"))
                 SendPathItems(Data.Substring(5));
-            if (Data.StartsWith("[DOWNLOAD]"))
+            // If the server wants to download a file...
+            else if (Data.StartsWith("[DOWNLOAD]"))
                 SendFileRequest(Data.Substring(10));
+
+            #endregion
+
+            #region When you navigates the server's PC
+
+            // Client sent a HDD object
+            else if (Data.StartsWith("[DRIVE]"))
+            {
+                // Split the received data
+                string[] data = Data.Substring(7).Split('|');
+                // Create the object and add it to the list
+                ExplorerItems.Add(new FileExplorerObject()
+                {
+                    Name = $"{data[1]} ({data[0]})",
+                    Path = data[0],
+                    Type = ExplorerItemTypes.HDD,
+                    PermissionsDenied = false
+                });
+            }
+            // Client sent a file object
+            else if (Data.StartsWith("[FILE]"))
+            {
+                // Split the received data
+                string[] data = Data.Substring(6).Split('|');
+                // Create the object and add it to the list
+                ExplorerItems.Add(new FileExplorerObject()
+                {
+                    Name = data[0],
+                    Extension = data[1],
+                    Size = long.Parse(data[2]),
+                    Type = ExplorerItemTypes.File
+                });
+            }
+            // Client sent a folder
+            else if (Data.StartsWith("[FOLDER]"))
+            {
+                // Split the recieved data
+                string[] data = Data.Substring(8).Split('|');
+
+                // Create the object and add it to the list
+                ExplorerItems.Add(new FileExplorerObject()
+                {
+                    Name = data[0],
+                    Type = ExplorerItemTypes.Folder,
+                    PermissionsDenied = bool.Parse(data[1])
+                });
+            }
+
+            #endregion
+
+            // If it was no request...
+            else
+                // Show the data in the terminal
+                ClientLog.Add(new LogMessage()
+                {
+                    Content = Data,
+                    EventTime = DateTime.Now.ToString(),
+                    ShowTime = true,
+                    Type = Responses.Information
+                });
         }
 
         /// <summary>
@@ -297,9 +397,33 @@
 
             // Don't hande the command resolve action here
             ResolveCommand();
+            
+            // Add one slot for the executed command
+            Array.Resize(ref CommandHistory, CommandHistory.Length + 1);
+
+            // Add the executed command to the command history
+            CommandHistory[CommandHistory.Length - 1] = CommandString;
 
             // Clear the Input line
             CommandString = String.Empty;
+        }
+
+        /// <summary>
+        /// Is called when the up key is pressed
+        /// </summary>
+        private void PreviousCommandEvent()
+        {
+            // Return if there are no commands in the command history
+            if (CommandHistory.Length < 1) return;
+
+            // Reset the CommandIndex if it is at the end of the history
+            if (CurrentCommandIndex < 0) CurrentCommandIndex = CommandHistory.Length - 1;
+
+            // Set the current command to the previous one in the history
+            CommandString = CommandHistory[CurrentCommandIndex];
+
+            // Go back one step in the history
+            CurrentCommandIndex--;
         }
 
         /// <summary>

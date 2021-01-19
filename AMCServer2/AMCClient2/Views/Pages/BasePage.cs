@@ -1,11 +1,7 @@
 ﻿namespace AMCClient2
 {
-    /// <summary>
-    /// Required namespaces
-    /// </summary>
-    #region Namespaces
+    // Required namespaces
     using System.Windows.Controls;
-    #endregion
 
     /// <summary>
     /// Generic class that replaces the Page class

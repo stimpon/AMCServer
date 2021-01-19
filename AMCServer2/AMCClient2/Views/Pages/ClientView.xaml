@@ -8,7 +8,7 @@
       xmlns:local="clr-namespace:AMCClient2"
       mc:Ignorable="d" 
       d:DesignHeight="500" d:DesignWidth="1400"
-      Title="ClientView">
+      Title="ClientView" Loaded="BasePage_Loaded">
 
     <Border Background="White">
 
@@ -40,7 +40,7 @@
                 <Border Grid.Row="2" Background="{StaticResource SolidColor_Gray}">
 
                     <ListView Background="Transparent" ItemsSource="{Binding ExplorerItems}" HorizontalContentAlignment="Left"
-                              BorderThickness="0" SelectionMode="Single" x:Name="LvExplorer">
+                              BorderThickness="0" SelectionMode="Single" x:Name="LvExplorer" IsTabStop="False">
 
                         <ListView.ItemContainerStyle>
                             <Style TargetType="{x:Type ListViewItem}">
@@ -174,7 +174,8 @@
                 </StackPanel>
 
                 <!--Terminal-->
-                <ListView Grid.Row="2" ItemsSource="{Binding ClientLog}" BorderThickness="0" Background="Black" Margin="0,0,0,25">
+                <ListView Grid.Row="2" ItemsSource="{Binding ClientLog}" BorderThickness="0" Background="Black"
+                          Margin="0,0,0,25" IsTabStop="False">
 
                     <ListView.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -206,7 +207,8 @@
 
                 </ListView>
 
-                <TextBox Margin="0" Height="25" VerticalAlignment="Bottom" 
+                <TextBox x:Name="ConsoleInput"
+                         Margin="0" Height="25" VerticalAlignment="Bottom" TabIndex="0"
                          Background="Black" BorderThickness="0" IsReadOnly="False"
                          Grid.Row="2" Foreground="White" 
                          FontFamily="Consolas" FontSize="13" Text="{Binding CommandString, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
@@ -215,6 +217,7 @@
                     <!-- Handle input -->
                     <TextBox.InputBindings>
                         <KeyBinding Command="{Binding Path=ExecuteCommand}" Key="Return"/>
+                        <KeyBinding Command="{Binding Path=PreviousCommand}" Key="Up"/>
                     </TextBox.InputBindings>
 
                 </TextBox>

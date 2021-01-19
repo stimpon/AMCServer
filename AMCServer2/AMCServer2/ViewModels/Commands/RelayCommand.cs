@@ -1,12 +1,8 @@
 ﻿namespace AMCServer2
 {
-    /// <summary>
-    /// All of the required namespaces
-    /// </summary>
-    #region Namespaces
+    // Required namespaces >>
     using System;
     using System.Windows.Input;
-    #endregion
 
     /// <summary>
     /// Universal command

@@ -1,4 +1,8 @@
-﻿namespace AMCServer2
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace AMCCore
 {
     /// <summary>
     /// An object that will be displayed in the explorer
@@ -40,13 +44,14 @@
         /// this property is just for display purposes so that a 
         /// converter is not needed
         /// </summary>
-        public string FormatedSizeString { 
-            get 
-            {               
+        public string FormatedSizeString
+        {
+            get
+            {
                 if (Type != ExplorerItemTypes.File)
                     return string.Empty;
                 return StringFormatingHelpers.BytesToSizeString(Size);
-            } 
+            }
         }
 
         /// <summary>

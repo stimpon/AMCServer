@@ -8,7 +8,7 @@
       xmlns:local="clr-namespace:AMCServer2"
       mc:Ignorable="d" 
       d:DesignHeight="600" d:DesignWidth="1500"
-      Title="ServerView">
+      Title="ServerView" Loaded="BasePage_Loaded">
     <Border Background="White">
 
         <DockPanel>
@@ -36,7 +36,7 @@
                 <Border Grid.Row="2" Background="{StaticResource SolidColor_Gray}">
 
                     <ListView Background="Transparent" ItemsSource="{Binding ExplorerItems}" HorizontalContentAlignment="Left"
-                              BorderThickness="0" SelectionMode="Single" x:Name="LvExplorer">
+                              BorderThickness="0" SelectionMode="Single" x:Name="LvExplorer" IsTabStop="False">
 
                         <ListView.ItemContainerStyle>
                             <Style TargetType="{x:Type ListViewItem}">
@@ -172,18 +172,18 @@
                     <RowDefinition Height="2*"/>
                 </Grid.RowDefinitions>
 
-                <ListView Grid.Row="0" Background="White" BorderThickness="0" ItemsSource="{Binding ServerHandler.ActiveConnections, Source={x:Static local:Container.Instance}}">
+                <ListView Grid.Row="0" Background="White" BorderThickness="0" ItemsSource="{Binding ServerHandler.ActiveConnections, Source={x:Static local:Container.Instance}}" IsTabStop="False">
                     <ListView.View>
                         <GridView ColumnHeaderContainerStyle="{StaticResource ConnectionsListHeaderStyle}">
 
                             <!-- All columns that shows the data of each client -->
-                            <GridViewColumn Header="ID"              Width="50"   DisplayMemberBinding="{Binding ID}"                     />
-                            <GridViewColumn Header="Remote endpoint" Width="200"  DisplayMemberBinding="{Binding ClientConnectionString}" />
-                            <GridViewColumn Header="Connected at"    Width="200"  DisplayMemberBinding="{Binding ConnenctedTime}"         />
-                            <GridViewColumn Header="Verified"        Width="100"  DisplayMemberBinding="{Binding Verified}"               />
-                            <GridViewColumn Header="privileges"      Width="100"  DisplayMemberBinding="{Binding AutorisationLevel}"      />
-                            <GridViewColumn Header="Muted"           Width="100"  DisplayMemberBinding="{Binding Mute}"                   />
-                            <GridViewColumn Header="Service"         Width="100"  DisplayMemberBinding="{Binding Service}"                />
+                            <GridViewColumn Header="ID"              Width="50"   DisplayMemberBinding="{Binding ID}"                                                          />
+                            <GridViewColumn Header="Remote endpoint" Width="200"  DisplayMemberBinding="{Binding ClientConnectionString}"                                      />
+                            <GridViewColumn Header="Connected at"    Width="200"  DisplayMemberBinding="{Binding ConnenctedTime}"                                              />
+                            <GridViewColumn Header="Verified"        Width="100"  DisplayMemberBinding="{Binding Verified}"                                                    />
+                            <GridViewColumn Header="privileges"      Width="100"  DisplayMemberBinding="{Binding ServerPermissions, Converter={local:PrivilegeSetToStringConverter}}" />
+                            <GridViewColumn Header="Muted"           Width="100"  DisplayMemberBinding="{Binding Mute}"                                                        />
+                            <GridViewColumn Header="Service"         Width="100"  DisplayMemberBinding="{Binding Service}"                                                     />
                         </GridView>
                                              
                     </ListView.View>
@@ -241,11 +241,12 @@
                          Background="Black" BorderThickness="0" IsReadOnly="False"
                          Grid.Row="2" Foreground="White" 
                          FontFamily="Consolas" FontSize="13" Text="{Binding CommandString, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
-                         VerticalContentAlignment="Center">
+                         VerticalContentAlignment="Center" TabIndex="0" x:Name="ConsoleInput">
                     
                     <!-- Handle input -->
                     <TextBox.InputBindings>
                         <KeyBinding Command="{Binding Path=ExecuteCommand}" Key="Return"/>
+                        <KeyBinding Command="{Binding Path=PreviousCommand}" Key="Up"/>
                     </TextBox.InputBindings>
                     
                 </TextBox>

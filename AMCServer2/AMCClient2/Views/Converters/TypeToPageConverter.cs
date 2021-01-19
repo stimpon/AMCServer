@@ -24,7 +24,7 @@
             switch ((MainViews)value)
             {
                 // Show a new instance of the serve interface
-                case MainViews.ServerInterface:
+                case MainViews.ClientInterface:
                     return new ClientView();
 
                 // Converter should never receive an invalid type

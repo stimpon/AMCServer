@@ -18,6 +18,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\NetworkModules\NetworkModules.Core\NetworkModules.Core.csproj" />
     <ProjectReference Include="..\..\NetworkModules\NetworkModules.Server\NetworkModules.Server.csproj" />
+    <ProjectReference Include="..\AMCCore\AMCCore.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -33,6 +34,11 @@
     <None Update="Program Files\Config Files\server.cfg">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Injection\Interfaces\" />
+    <Folder Include="Models\" />
   </ItemGroup>
 
 </Project>

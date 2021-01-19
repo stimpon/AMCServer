@@ -1,45 +1,46 @@
 ﻿namespace AMCServer2
 {
-    // Required namespaces
+    // Requried namespaces
     using System;
-    using AMCServer;
     using System.Globalization;
+    using NetworkModules.Core;
 
-    public class TypeToPageConverter : BaseValueConverter<TypeToPageConverter>
+    /// <summary>
+    /// Coverter that converts a privilege-set to a representable string
+    /// </summary>
+    /// <seealso cref="AMCServer2.BaseValueConverter{AMCServer2.Views.Converters.PrivilegeSetToStringConverter}" />
+    public class PrivilegeSetToStringConverter : BaseValueConverter<PrivilegeSetToStringConverter>
     {
         /// <summary>
-        /// Convert the provided type into the corresponding page
+        /// Convert the provided value
         /// </summary>
         /// <param name="value"></param>
         /// <param name="targetType"></param>
         /// <param name="parameter"></param>
         /// <param name="culture"></param>
         /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
         public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            // Check the provided value
-            switch ((MainViews)value)
-            {
-                // Show a new instance of the serve interface
-                case MainViews.ServerInterface:
-                    return new ServerView();
+            // Create the result string
+            string privilegeString = ((Permissions)value).ToString();
 
-                // Converter should never receive an invalid type
-                default:
-                    throw new Exception("Page does not exist");
-            }
+            // Return the new string
+            return privilegeString;
         }
 
         /// <summary>
-        /// Convert back into the corresponding type
+        /// Convert back into its root object
         /// </summary>
         /// <param name="value"></param>
         /// <param name="targetType"></param>
         /// <param name="parameter"></param>
         /// <param name="culture"></param>
         /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
         public override object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
+            // Does not need implementation for now
             throw new NotImplementedException();
         }
     }

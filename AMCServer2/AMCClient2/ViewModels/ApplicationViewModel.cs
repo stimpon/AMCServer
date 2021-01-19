@@ -27,7 +27,7 @@
         public ApplicationViewModel()
         {
             // Set the CurrentPage to the ServerInterface
-            CurrentPage = MainViews.ServerInterface;
+            CurrentPage = MainViews.ClientInterface;
         }
     }
 }
