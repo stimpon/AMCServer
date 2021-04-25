@@ -132,7 +132,7 @@
             // This is the standard message that shows when the program starts
             ServerLog = new ThreadSafeObservableCollection<ILogMessage>() {
                 new LogMessage() { Content = "AMCServer [Version 1.0.0]", ShowTime = false, Type = Responses.Information } ,
-                new LogMessage() { Content = "(c) 2020 Stimpon",          ShowTime = false, Type = Responses.Information } ,
+                new LogMessage() { Content = "(c) 2021 Stimpon",          ShowTime = false, Type = Responses.Information } ,
             };
             ExplorerItems = new ThreadSafeObservableCollection<FileExplorerObject>();
 
@@ -164,7 +164,7 @@
             #region Commands with flags
 
             // :bind + [ID] >> Bind the server to a client
-            if (CommandString.ToLower().StartsWith(":bind "))
+            if (CommandString.ToLower().StartsWith("bind "))
             {
                 // Try to parse the argument into an int
                 if (int.TryParse(CommandString.Substring(5), out int ID))
@@ -175,7 +175,7 @@
                                                   Type     = Responses.Error });
             }
             // :setpriv [ID] [PL] >> Set privileges for an active connection
-            else if (CommandString.ToLower().StartsWith(":setpriv "))
+            else if (CommandString.ToLower().StartsWith("setpriv "))
             {
                 // Extract substrings from command
                 var commandFlags = CommandString.Split(' ')[1..];
@@ -210,9 +210,99 @@
                 // Else if the command had invalid or to few flags...
                 else
                     // Display error message
-                    ServerLog.Add(new LogMessage() { Content = $"Invalid or to few command flags, check :help", Type = Responses.Error });
+                    ServerLog.Add(new LogMessage() { Content = $"Invalid or to few command flags, check :help", Type = Responses.Information });
             }
+            // start + parameters for what services to start
+            else if (CommandString.ToLower().StartsWith("start"))
+            {
+                // Get all flags
+                var flags = CommandString.Split(' ')[1..];
 
+                // If no flags was provided
+                if (flags.Count() == 0)
+                {
+                    ServerLog.Add(new LogMessage() { Content = "You must say which services to start", Type = Responses.Information });
+                }
+                // Else if any flags was provided...
+                else
+                {
+                    // Check at the end if this has been set to true
+                    bool validFlags = false;
+
+                    // If a 'start all services' flag is in the command
+                    if (flags.Contains("-a"))
+                    {
+                        // Start the server
+                        Container.GetSingleton<ServerHandler>().StartServer();
+                        // start the file transfer socket
+                        Container.GetSingleton<ServerHandler>().StartFileTransferSocket();
+
+                        // Valid flags was provided
+                        validFlags = true;
+                    }
+                    // Else... Check wcich services to start
+                    else
+                    {
+                        // Start the server...
+                        if (flags.Contains("-s"))
+                        {
+                            // Start the server
+                            Container.GetSingleton<ServerHandler>().StartServer();
+                            // Valid flags was provided
+                            validFlags = true;
+                        }
+                        // Start the file transfer socket
+                        if (flags.Contains("-f"))
+                        {
+                            // Start the server
+                            Container.GetSingleton<ServerHandler>().StartFileTransferSocket();
+                            // Valid flags was provided
+                            validFlags = true;
+                        }
+                    }
+
+                    // If no valid flags was provided
+                    if (!validFlags)
+                    {
+                        ServerLog.Add(new LogMessage() { Content = "Invalid parameters was provided, type 'help' for more information", Type = Responses.Information });
+                    }
+                }
+            }
+            // stop + parameters for what services to stop
+            else if (CommandString.ToLower().StartsWith("stop"))
+            {
+                // Get all flags
+                var flags = CommandString.Split(' ')[1..];
+
+                // If no flags was provided
+                if (flags.Count() == 0)
+                {
+                    // Stop all services
+                    Container.GetSingleton<ServerHandler>().StopServer();
+                }
+                // Else if any flags was provided...
+                else
+                {
+                    // Check at the end if this has been set to true
+                    bool validFlags = false;
+
+                    // If the file-transfer socket should be started
+                    if (flags.Contains("-f"))
+                    {
+                        // Start the file-transfer socket
+                        Container.GetSingleton<ServerHandler>().StopFileTransferSocket();
+
+                        // Valid flags was provided
+                        validFlags = true;
+                    }
+
+                    // If no valid flags was provided
+                    if (!validFlags)
+                    {
+                        ServerLog.Add(new LogMessage() { Content = "Invalid parameters was provided, type 'help' for more information", Type = Responses.Information });
+                    }
+                }
+            }
             #endregion
 
             #region Commands without flags
@@ -223,19 +313,13 @@
                 switch (CommandString.ToLower())
                 {
                     // :cls >> Clear the console                   
-                    case ":cls": ServerLog.Clear(); break;
-
-                    // :start >> Start the server
-                    case ":start": Container.GetSingleton<ServerHandler>().StartServer(); break;
-
-                    // :stop >> Stop the server
-                    case ":stop": Container.GetSingleton<ServerHandler>().StopServer(); break;
+                    case "cls": ServerLog.Clear(); break;
 
                     // :unbind >> unbind the server from the currently bound client
-                    case ":unbind": Container.GetSingleton<ServerHandler>().UnbindServer(); break;
+                    case "unbind": Container.GetSingleton<ServerHandler>().UnbindServer(); break;
 
                     // :getdrives >> Query drive info from the bound client
-                    case ":getdrives":
+                    case "getdrives":
                         // Prepare the explorer
                         ExplorerItems.Clear();
                         // Clear current path
@@ -245,7 +329,7 @@
                         break;
 
                     // :help >> Provide help information
-                    case ":help":
+                    case "help":
                         // Read all lines from the help file
                         foreach (string ch in File.ReadAllLines(Environment.CurrentDirectory + "\\Program Files\\Commands.txt"))
                             // Display each line correctly in the terminal
@@ -271,6 +355,7 @@
         /// <param name="e"></param>
         private void OnServerInformation(object sender, InformationEventArgs e)
         {
+            // Log the message
             ServerLog.Add(new LogMessage()
             {
                 Content   = e.Information,

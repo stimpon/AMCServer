@@ -1,7 +1,7 @@
-﻿:start     	     - Start the server
-:stop       	     - Stop the server
-:bind [ID]  	     - Bind the server to a client. [ID]: Client ID
-:getdrives  	     - Get all drives from the bound client
-:cls       	     - Clear the terminal
-:setpriv [ID] [PL]   - Set privileges for an active client. [ID]: Client ID [PL]: Privilege level
-:help       	     - Provides help information
+﻿start     	     - Start services (flags -a: all services, -s: server, -f: file-transfer socket)
+stop       	     - Stops services (flags NONE: stops all services, -f: file-transfer socket)
+bind [ID]  	     - Bind the server to a client. [ID]: Client ID
+getdrives  	     - Get all drives from the bound client
+cls       	     - Clear the terminal
+setpriv [ID] [PL]   - Set privileges for an active client. [ID]: Client ID [PL]: Privilege level
+help       	     - Provides help information

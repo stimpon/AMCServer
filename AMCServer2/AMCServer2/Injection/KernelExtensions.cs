@@ -31,9 +31,10 @@
 
             //                                                           - Read all properties from the config file
             //                                                           - Pass them to the constructor of the ServerViewModel
-            K.Bind<ServerHandler>().ToConstant(new ServerHandler(          ConfigFilesProcessor.GetServerPort(),
-                                                                           ConfigFilesProcessor.GetServerBacklog(),
-                                                                           ConfigFilesProcessor.GetServerBufferSize()));
+            K.Bind<ServerHandler>().ToConstant(new ServerHandler(  ConfigFilesProcessor.GetServerPort(),
+                                                                   ConfigFilesProcessor.GetFTPPort(),
+                                                                   ConfigFilesProcessor.GetServerBacklog(),
+                                                                   ConfigFilesProcessor.GetServerBufferSize()));
 
             #endregion
 

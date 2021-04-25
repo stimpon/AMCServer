@@ -135,7 +135,7 @@
             // This is the standard message that shows when the program starts
             ClientLog = new ThreadSafeObservableCollection<ILogMessage>() {
                 new LogMessage() { Content = "AMCClient [Version 1.0.0]", ShowTime = false, Type = Responses.Information } ,
-                new LogMessage() { Content = "(c) 2020 Stimpon",          ShowTime = false, Type = Responses.Information } ,
+                new LogMessage() { Content = "(c) 2021 Stimpon",          ShowTime = false, Type = Responses.Information } ,
             };
             ExplorerItems = new ThreadSafeObservableCollection<FileExplorerObject>();
 
@@ -145,6 +145,8 @@
             ExecuteCommand = new RelayCommandNoParameters(ExecuteCommandEvent);
             // Previous command command
             PreviousCommand = new RelayCommandNoParameters(PreviousCommandEvent);
+            // Navigate command
+            ExplorerDoubleClick = new RelayCommand(NavigateEvent, (o) => { return true; });
 
             #endregion
 
@@ -171,13 +173,13 @@
                 switch (CommandString.ToLower())
                 {
                     // :connect >> Connect to the server
-                    case ":connect": Container.Get<ClientHandler>().Connect(); break;
+                    case "connect": Container.Get<ClientHandler>().Connect(); break;
 
                     // :start >> Start the server
-                    case ":cls": ClientLog.Clear(); break;
+                    case "cls": ClientLog.Clear(); break;
 
                     // :getdrives >> Query drive info from the bound client
-                    case ":getdrives":
+                    case "getdrives":
                         // Prepare the explorer
                         ExplorerItems.Clear();
                         // Clear current path
@@ -187,7 +189,7 @@
                         break;
 
                     // :help >> Provide help information
-                    case ":help":
+                    case "help":
                         foreach (string ch in File.ReadAllLines(Environment.CurrentDirectory + "\\Program Files\\Commands.txt"))
                             ClientLog.Add(new LogMessage()
                             {
@@ -344,6 +346,7 @@
             {
                 // Split the received data
                 string[] data = Data.Substring(6).Split('|');
+
                 // Create the object and add it to the list
                 ExplorerItems.Add(new FileExplorerObject()
                 {
@@ -427,12 +430,34 @@
         }
 
         /// <summary>
-        /// Fires when an item has been double clicked on in the explorer
+        /// Is called when an item has been double clicked on in the explorer
         /// </summary>
         /// <param name="o"></param>
         private void NavigateEvent(object o)
         {
             var Item = o as FileExplorerObject;
+
+            // Check if the item is navigateable
+            if (Item.Type == ExplorerItemTypes.HDD ||
+                Item.Type == ExplorerItemTypes.Folder)
+            {
+
+                // Return if server is not granted permissions to that folder or drive
+                if (Item.PermissionsDenied)
+                    return;
+
+                // Prepare the explorer for new items
+                ExplorerItems.Clear();
+
+                // Request navigation
+                Container.Get<ClientHandler>().Send((Item.Type == ExplorerItemTypes.Folder) ?
+                    $"[NAV]{CurrentPathOnServerPC}\\{Item.Name}" :
+                    $"[NAV]{Item.Path}");
+
+                // Set the new path (Formats the string so it looks good)
+                CurrentPathOnServerPC += (Item.Type == ExplorerItemTypes.HDD) ? Item.Path.Substring(0, Item.Path.Length - 1) : $"/{Item.Name}";
+
+            }
         }
 
         #endregion

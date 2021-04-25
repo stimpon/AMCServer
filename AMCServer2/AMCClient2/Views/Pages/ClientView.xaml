@@ -34,7 +34,8 @@
                 </Border>
 
                 <Border Grid.Row="1" Background="{StaticResource SolidColor_DarkBlue}">
-
+                    <TextBlock Text="{Binding CurrentPathOnServerPC}" Margin="10,0,10,0" FontSize="12" 
+                               FontFamily="Consolas" VerticalAlignment="Center" Foreground="White"/>
                 </Border>
 
                 <Border Grid.Row="2" Background="{StaticResource SolidColor_Gray}">
@@ -177,12 +178,6 @@
                 <ListView Grid.Row="2" ItemsSource="{Binding ClientLog}" BorderThickness="0" Background="Black"
                           Margin="0,0,0,25" IsTabStop="False">
 
-                    <ListView.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <UniformGrid Columns="1" VerticalAlignment="Top"/>
-                        </ItemsPanelTemplate>
-                    </ListView.ItemsPanel>
-
                     <ListView.ItemContainerStyle>
                         <Style TargetType="{x:Type ListViewItem}">
 
@@ -192,12 +187,14 @@
 
                                         <!-- This is the container for the logitem -->
                                         <StackPanel Orientation="Horizontal" Margin="5,2,0,2">
-                                            <TextBlock VerticalAlignment="Center" HorizontalAlignment="Left" FontSize="13" FontFamily="Consolas" Visibility="{Binding ShowTime, Converter={local:BoolToVisibilityConverter}}">
+                                            <TextBlock VerticalAlignment="Top" HorizontalAlignment="Left" FontSize="13" FontFamily="Consolas" Visibility="{Binding ShowTime, Converter={local:BoolToVisibilityConverter}}" TextWrapping="Wrap">
                                                 <Run Foreground="{StaticResource SolidColor_Blue}" Text="{Binding EventTime}"/><Run Foreground="White" Text=" :  "/>
                                             </TextBlock>
-                                            <TextBlock Foreground="{Binding Type, Converter={local:TypeToForegroundConverter}}" Text="{Binding Content}"   VerticalAlignment="Center" HorizontalAlignment="Left" FontSize="13" FontFamily="Consolas"/>
+                                            <StackPanel Orientation="Vertical" Width="750">
+                                                <TextBlock Foreground="{Binding Type, Converter={local:TypeToForegroundConverter}}" Text="{Binding Content}"   VerticalAlignment="Top" HorizontalAlignment="Left" FontSize="13" FontFamily="Consolas" TextWrapping="Wrap"/>
+                                            </StackPanel>
                                         </StackPanel>
-
+                                        
                                     </ControlTemplate>
                                 </Setter.Value>
                             </Setter>

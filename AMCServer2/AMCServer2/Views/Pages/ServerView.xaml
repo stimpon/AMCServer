@@ -198,6 +198,9 @@
                         <Run Text="| Server state: "/><Run Text="{Binding ServerHandler.ServerState, Source={x:Static local:Container.Instance}, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}"/>
                     </TextBlock>
                     <TextBlock VerticalAlignment="Center" Foreground="White" FontFamily="Consolas" FontSize="13" Margin="10,0,0,0">
+                        <Run Text="| FT socket state: "/><Run Text="{Binding ServerHandler.FileTransferState, Source={x:Static local:Container.Instance}, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}"/>
+                    </TextBlock>
+                    <TextBlock VerticalAlignment="Center" Foreground="White" FontFamily="Consolas" FontSize="13" Margin="10,0,0,0">
                         <Run Text="| Bound client: "/><Run Text="{Binding ServerHandler.BoundClient, Source={x:Static local:Container.Instance}, Mode=OneWay}"/>
                     </TextBlock>
 
@@ -205,16 +208,12 @@
                 
                 
                 <!--Terminal-->
-                <ListView Grid.Row="2" ItemsSource="{Binding ServerLog}" BorderThickness="0" Background="Black" Margin="0,0,0,25">
+                <ListBox Grid.Row="2" ItemsSource="{Binding ServerLog}" BorderThickness="0" Background="Black" Margin="0,0,0,25" 
+                          ScrollViewer.HorizontalScrollBarVisibility="Hidden">
 
-                    <ListView.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <UniformGrid Columns="1" VerticalAlignment="Top"/>
-                        </ItemsPanelTemplate>
-                    </ListView.ItemsPanel>
-
-                    <ListView.ItemContainerStyle>
-                        <Style TargetType="{x:Type ListViewItem}">
+                    <ListBox.ItemContainerStyle>
+                        
+                        <Style TargetType="{x:Type ListBoxItem}">
 
                             <Setter Property="Template">
                                 <Setter.Value>
@@ -222,10 +221,12 @@
                                         
                                         <!-- This is the container for the logitem -->
                                         <StackPanel Orientation="Horizontal" Margin="5,2,0,2">
-                                            <TextBlock VerticalAlignment="Center" HorizontalAlignment="Left" FontSize="13" FontFamily="Consolas" Visibility="{Binding ShowTime, Converter={local:BoolToVisibilityConverter}}">
+                                            <TextBlock VerticalAlignment="Top" HorizontalAlignment="Left" FontSize="13" FontFamily="Consolas" Visibility="{Binding ShowTime, Converter={local:BoolToVisibilityConverter}}" TextWrapping="Wrap">
                                                 <Run Foreground="{StaticResource SolidColor_Blue}" Text="{Binding EventTime}"/><Run Foreground="White" Text=" :  "/>
                                             </TextBlock>
-                                            <TextBlock Foreground="{Binding Type, Converter={local:TypeToForegroundConverter}}" Text="{Binding Content}"   VerticalAlignment="Center" HorizontalAlignment="Left" FontSize="13" FontFamily="Consolas"/>
+                                            <StackPanel Orientation="Vertical" Width="750">
+                                                <TextBlock Foreground="{Binding Type, Converter={local:TypeToForegroundConverter}}" Text="{Binding Content}"   VerticalAlignment="Top" HorizontalAlignment="Left" FontSize="13" FontFamily="Consolas" TextWrapping="Wrap"/>
+                                            </StackPanel>
                                         </StackPanel>
 
                                     </ControlTemplate>
@@ -233,9 +234,9 @@
                             </Setter>
                             
                         </Style>
-                    </ListView.ItemContainerStyle>
+                    </ListBox.ItemContainerStyle>
                     
-                </ListView>
+                </ListBox>
 
                 <TextBox Margin="0" Height="25" VerticalAlignment="Bottom" 
                          Background="Black" BorderThickness="0" IsReadOnly="False"
