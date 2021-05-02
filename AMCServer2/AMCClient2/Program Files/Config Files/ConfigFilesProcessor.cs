@@ -57,9 +57,9 @@
         /// Reads the FTP port from the server config file
         /// </summary>
         /// <returns>Returns buffer_size's value</returns>
-        public static int GetFTPPort()
+        public static int GetServerFTPPort()
             =>
-        Convert.ToInt32(File.ReadAllLines(ServerPropertiesConfigFilePath).First(l => l.StartsWith("ftp_port")).Split(':')[1]);
+        Convert.ToInt32(File.ReadAllLines(ServerPropertiesConfigFilePath).First(l => l.StartsWith("server_ftp_port")).Split(':')[1]);
 
         #endregion
     }

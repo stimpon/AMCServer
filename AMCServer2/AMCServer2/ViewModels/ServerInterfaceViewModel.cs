@@ -10,6 +10,7 @@
     using NetworkModules.Core;
     using NetworkModules.Server;
     using AMCCore;
+    using System.Windows;
 
     /// <summary>
     /// ViewModel for the ServerView
@@ -116,6 +117,19 @@
         }
 
         #region Functions
+
+        /// <summary>
+        /// Adds the file explorer item.
+        /// </summary>
+        /// <param name="item">The item.</param>
+        private void AddFileExplorerItem(FileExplorerObject item)
+        {
+            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                // Add item to the control
+                ExplorerItems.Add(item);
+            }));
+        }
 
         /// <summary>
         /// First function that will be called when a new instance
@@ -389,8 +403,8 @@
             {
                 // Split the received data
                 string[] data = e.Data.Substring(7).Split('|');
-                // Create the object and add it to the list
-                ExplorerItems.Add(new FileExplorerObject()
+
+                AddFileExplorerItem(new FileExplorerObject()
                 {
                     Name = $"{data[1]} ({data[0]})",
                     Path = data[0],
@@ -403,8 +417,9 @@
             {
                 // Split the received data
                 string[] data = e.Data.Substring(6).Split('|');
-                // Create the object and add it to the list
-                ExplorerItems.Add(new FileExplorerObject()
+
+                // Add item to the file explorer
+                AddFileExplorerItem(new FileExplorerObject()
                 {
                     Name = data[0],
                     Extension = data[1],
@@ -418,8 +433,8 @@
                 // Split the recieved data
                 string[] data = e.Data.Substring(8).Split('|');
 
-                // Create the object and add it to the list
-                ExplorerItems.Add(new FileExplorerObject()
+                // Add the file explorer item
+                AddFileExplorerItem(new FileExplorerObject()
                 {
                     Name = data[0],
                     Type = ExplorerItemTypes.Folder,

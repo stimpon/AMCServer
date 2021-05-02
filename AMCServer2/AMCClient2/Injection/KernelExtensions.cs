@@ -29,7 +29,8 @@
             K.Bind<ApplicationViewModel>().ToConstant(new ApplicationViewModel());
 
             K.Bind<ClientHandler>().ToConstant(new ClientHandler(         ConfigFilesProcessor.GetServerPort(),
-                                                                          ConfigFilesProcessor.GetServerIPAddress()));
+                                                                          ConfigFilesProcessor.GetServerIPAddress(),
+                                                                          ConfigFilesProcessor.GetServerFTPPort()));
 
             #endregion
 
