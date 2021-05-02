@@ -1,0 +1,17 @@
+﻿;Information messages =>
+100:You are already connected to the server
+101:Connection to the server was established
+
+;File transfer messages =>
+200:File: {0} was sent to the server"
+201:The server was trying to download: {0} but the file is being used by another process and cannot be sent at the moment
+
+;Error messages =>
+300:Connection to the server could not be established. Error: {0}
+301:You were disconnected from the server
+
+;File transfer error messages =>
+302:The server rejected the file transfer, Error: {0}
+
+;Warning messages
+400:Data was received from the server but the signature could not be verified. Data: {0}

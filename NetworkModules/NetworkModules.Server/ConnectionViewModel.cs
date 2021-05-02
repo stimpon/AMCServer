@@ -1,24 +1,25 @@
 ﻿namespace NetworkModules.Server
 {
-    /// <summary>
-    /// Required namespaces
-    /// </summary>
-    #region Namespaces
+    // Required namespaces
     using System;
+    using System.Collections.Generic;
     using System.ComponentModel;
     using System.Net.Sockets;
     using System.Security.Cryptography;
-    #endregion
+    using NetworkModules.Core;
 
     /// <summary>
-    /// Model of the Client
+    /// Client ViewModel
+    /// This class can be extended for further functionality
     /// </summary>
-    public class ConnectionViewModel : INotifyPropertyChanged
+    public partial class ConnectionViewModel : INotifyPropertyChanged
     {
         /// <summary>
         /// Occurs when a property value changes.
         /// </summary>
         public event PropertyChangedEventHandler PropertyChanged = (sender, e) => { };
+
+        #region Client info
 
         /// <summary>
         /// Client ID
@@ -36,6 +37,23 @@
         public Socket ClientConnection { get; internal set; }
 
         /// <summary>
+        /// Has the client verified itself, all connections
+        /// should be verified, all active connections should
+        /// be verified, if a client fails to veify upon connecting,
+        /// it will be disconnected
+        /// </summary>
+        public bool Verified { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets this connection's permissions on the server
+        /// </summary>
+        public Permissions ServerPermissions { get; set; }
+
+        #endregion
+
+        #region Client connection
+
+        /// <summary>
         /// Reads the remote ip from the socket
         /// </summary>
         public string ClientConnectionString { get => ClientConnection.RemoteEndPoint.ToString(); }
@@ -43,7 +61,12 @@
         /// <summary>
         /// This client's global data buffer
         /// </summary>
+        /// 
         public byte[] DataBuffer { get; set; }
+        /// <summary>
+        /// Gets or sets the byte queue for this client (The bytes that are being handled at the moment)
+        /// </summary>
+        public List<byte> ByteQueue { get; set; } = new List<byte>();
 
         /// <summary>
         /// Size of the data that is currently been received
@@ -60,20 +83,31 @@
         /// </summary>
         public string CurrentDataString { get; set; }
 
-        /// <summary>
-        /// This tells the server what this client can
-        /// have access to and can do on the server,
-        /// can be manually set
-        /// </summary>
-        public byte AutorisationLevel { get; set; }
+        #endregion
+
+        #region File transfer properties
 
         /// <summary>
-        /// Has the client verified itself, all connections
-        /// should be verified, all active connections should
-        /// be verified, if a client fails to veify upon connecting,
-        /// it will be disconnected
+        /// Gets or sets the file transfer connection.
         /// </summary>
-        public bool Verified { get; set; } = false;
+        /// <value>
+        /// The file transfer connection.
+        /// </value>
+        public Socket FileRecSocket { get; set; }
+
+        /// <summary>
+        /// This client's global data buffer
+        /// </summary>
+        public byte[] DownloadBuffer { get; set; }
+
+        /// <summary>
+        /// Gets or sets the byte queue for this client (The bytes that are being handled at the moment)
+        /// </summary>
+        public List<byte> DownloadByteQueue { get; set; } = new List<byte>();
+
+        #endregion
+
+        #region Cryptography
 
         /// <summary>
         /// RSA public key that will be used when sending data to this client
@@ -84,5 +118,7 @@
         /// The servers private key
         /// </summary>
         public RSACryptoServiceProvider Decryptor { get; set; }
+
+        #endregion
     }
 }

@@ -1,19 +1,15 @@
 ﻿namespace NetworkModules.Client
 {
-    /// <summary>
-    /// Required namespaces
-    /// </summary>
-    #region Namespaces
+    // Required namespaces >>
     using System;
     using System.ComponentModel;
     using System.IO;
-    using System.Linq;
     using System.Net;
     using System.Net.Sockets;
     using System.Security.Cryptography;
     using System.Text;
     using NetworkModules.Core;
-    #endregion
+    using System.Collections.Generic;
 
     /// <summary>
     /// Client backend class that handles all communication to the 
@@ -31,12 +27,17 @@
         /// <summary>
         /// Listening port for the server
         /// </summary>
-        public int ServerPort           { get; private set; }
+        public int ServerPort                { get; private set; }
+
+        /// <summary>
+        /// Gets the server FTP port.
+        /// </summary>
+        public int ServerFTPPort             { get; private set; }
 
         /// <summary>
         /// The servers IP Address
         /// </summary>
-        public IPAddress ServerIP       { get; private set; }
+        public IPAddress ServerIP            { get; private set; }
 
         /// <summary>
         /// Endpoint for file transfer
@@ -46,12 +47,12 @@
         /// <summary>
         /// Servers packet buffersize
         /// </summary>
-        public int GlobalBufferSize     { get; private set; }
+        public int GlobalBufferSize          { get; private set; }
 
         /// <summary>
         /// Current server staus
         /// </summary>
-        public ClientStates ClientState { get; private set; }
+        public ClientStates ClientState      { get; private set; }
 
         #endregion
 
@@ -88,6 +89,11 @@
         private byte[] GlobalBuffer;
 
         /// <summary>
+        /// The server byte queue
+        /// </summary>
+        private List<byte> ServerByteQueue;
+
+        /// <summary>
         /// Size of the currently receiving data
         /// </summary>
         private long CurrentDataSize;
@@ -101,6 +107,11 @@
         /// Current data stream
         /// </summary>
         private string CurrentDataString;
+
+        /// <summary>
+        /// Message handler
+        /// </summary>
+        private Messages Messages;
 
         #endregion
 
@@ -121,7 +132,7 @@
         /// <summary>
         /// Default constructor
         /// </summary>
-        public ClientHandler(int port, IPAddress server_ip)
+        public ClientHandler(int port, IPAddress server_ip, int serverFTPPort)
         {
             /* Port cant be negative but the IPEndpoint Class does
              * not accespt uint's in the parameter
@@ -131,7 +142,10 @@
 
             // Set the server port
             ServerPort = port;
+            // Set the server IP
             ServerIP = server_ip;
+            // Set the server's FTP port
+            ServerFTPPort = serverFTPPort;
 
             // First initialize
             Initialize();
@@ -144,9 +158,11 @@
         /// </summary>
         public void Connect()
         {
+            // Return if client is connected to the server
             if(ClientState == ClientStates.Connected)
             {
-                OnClientInformation("You are already connected to the server", Responses.Warning);
+                // Send client message
+                OnClientInformation(Messages.GetMessage(100), Responses.Warning);
                 return;
             }
 
@@ -184,24 +200,28 @@
             // Send the signed hash
             ServerConnection.Send(SignedHash);
 
+            var v = Encryptor.Encrypt(Encoding.Default.GetBytes(
+                                                     (Message.Length).ToString()),
+                                                     true);
+
             // Send the data length
             ServerConnection.Send(Encryptor.Encrypt( Encoding.Default.GetBytes(
                                                      (Message.Length).ToString()), 
                                                      true));
 
             // Split up the data into 100 byte chunks
-            for(int Length = 0, index = 0; Length < Message.Length; Length += 124, index++)
+            for(int Length = 0, index = 0; Length < Message.Length; Length += 256, index++)
             {
                 // Packet that will be sent
                 byte[] _packet;
 
                 // Check if this will be the last packet
-                if ((Length + 124) >= Message.Length)
+                if ((Length + 256) >= Message.Length)
                      _packet = Encryptor.Encrypt(
                         Encoding.Default.GetBytes(Message[new Range(Length, Message.Length)]), true);
                 else
                     _packet = Encryptor.Encrypt(
-                        Encoding.Default.GetBytes(Message[new Range(Length, Length + 124)]), true);
+                        Encoding.Default.GetBytes(Message[new Range(Length, Length + 256)]), true);
 
                 // Send the data
                 ServerConnection.Send(_packet);
@@ -210,6 +230,7 @@
 
         /// <summary>
         /// Sends a file to the server
+        /// The server must accept a file from this client before the file can be sent
         /// </summary>
         /// <param name="FilePath"></param>
         public void BeginSendFile(string FilePath)
@@ -238,9 +259,13 @@
         /// </summary>
         private void Initialize()
         {
-            // Setup server buffer
+            // Create the message handler
+            Messages = new Messages();
+
+            // Setup server buffersize, buffer and queue
             GlobalBufferSize = 10240;
             GlobalBuffer = new byte[GlobalBufferSize];
+            ServerByteQueue = new List<byte>();
 
             // Setup the signature array
             CurrentSignature = new byte[0];
@@ -248,7 +273,7 @@
             Decryptor = new RSACryptoServiceProvider(2048);
             Encryptor = new RSACryptoServiceProvider(2048);
 
-            FileTransferEndpoint = new IPEndPoint(ServerIP, 401);
+            FileTransferEndpoint = new IPEndPoint(ServerIP, ServerFTPPort);
 
             // Set serverstate to offline
             ClientState = ClientStates.Disconnected;
@@ -272,7 +297,7 @@
                 {
                     // Create block and fill it with bytes
                     // from the file
-                    byte[] Block = new byte[1024];
+                    byte[] Block = new byte[512];
                     int Read = fs.Read(Block, 0, Block.Length);
 
                     // Resize the block to the correct size
@@ -287,8 +312,11 @@
             }
 
             // Clear key and IV from memory as it is not needed anymore
-            FileEncryptor.Key.ToList().Clear();
-            FileEncryptor.IV.ToList().Clear();
+            Array.Clear(FileEncryptor.Key, 0, FileEncryptor.Key.Length);
+            Array.Clear(FileEncryptor.IV, 0, FileEncryptor.IV.Length);
+
+            // Send message stating that the file was sent to the server successfuly
+            OnClientInformation(Messages.GetMessage(200, new FileInfo(FilePath).Name), Responses.OK);
 
             // Close the FileSender socket
             FileSenderSocket.Close();
@@ -344,7 +372,7 @@
                 // Send RSA key
                 ServerConnection.Send(Decryptor.ExportRSAPublicKey());
 
-                OnClientInformation($"Connection to the server was established", Responses.OK);
+                OnClientInformation(Messages.GetMessage(101), Responses.OK);
 
                 // Change the state
                 ClientState = ClientStates.Connected;
@@ -360,10 +388,10 @@
             }
             catch (Exception ex)
             {
-                // Call the event
-                OnClientInformation($"Connection failed, error message: {ex.Message}", Responses.Error);
+                // Send error stating that a connection to the server could not be established
+                OnClientInformation(Messages.GetErrorMessage(300, ex.Message), Responses.Error);
 
-                // Change back the state
+                // Set the client state to disconnected
                 ClientState = ClientStates.Disconnected;
             }
 
@@ -390,8 +418,8 @@
                 // Close the socket
                 s.Close();
 
-                // Call the infromation event
-                OnClientInformation("You were disconnected from the server", Responses.Error);
+                // Send error stating that the client was disconnected from the server
+                OnClientInformation(Messages.GetErrorMessage(301), Responses.Error);
 
                 // Set the connection state to disconnected
                 ClientState = ClientStates.Disconnected;
@@ -407,11 +435,21 @@
                 byte[] ReceivedBytes = GlobalBuffer;
                 Array.Resize(ref ReceivedBytes, rec);
 
+                // Add the received bytes to the servers byte queue
+                ServerByteQueue.AddRange(ReceivedBytes);
+
                 // Loop through all of the packets in the buffer (We know that the packets will be 256 bytes long)
                 for(int PacketStart = 0; PacketStart < rec; PacketStart += 256)
                 {
                     // Get the current packet from the buffer
                     byte[] _packet = ReceivedBytes[new Range(PacketStart, PacketStart + 256)];
+
+                    // If the current packet is not a whole packet (all bytes have not been received yet)
+                    if (PacketStart + 256 > ReceivedBytes.Length)
+                        break;
+
+                    // Read the next bytes in the servers byte queue
+                    _packet = ServerByteQueue.GetRange(0, 256).ToArray();
 
                     // Check if it is the first packet in the stream
                     if (CurrentDataSize.Equals(0))
@@ -463,15 +501,17 @@
                             }
                             else
                             {
-                                // Send a warning
-                                OnClientInformation($"A message was received but the " +
-                                    $"signature could not be verified.\nData: {CurrentDataString}", Responses.Warning);
+                                // Send message stating that data was received but that it could not be verified
+                                OnClientInformation(Messages.GetWarning(400, CurrentDataString), Responses.Warning);
                             }
 
                             // Clear the signature
                             CurrentSignature = new byte[0];
                         }
                     }
+
+                    // Removed the handled bytes
+                    ServerByteQueue.RemoveRange(0, 256);
                 }
 
             }
@@ -513,6 +553,25 @@
                     RNG.GetBytes(FileEncryptor.IV);
                 }
 
+                // Todo: Check if the file is accessable
+                try
+                {
+                    // Try opening the file and then close it
+                    using (FileStream fs = new FileStream((string)ar.AsyncState, FileMode.Open, FileAccess.Read, FileShare.None)) { fs.Close(); }
+                }
+                // If not...
+                catch
+                {
+                    // Close the socket and return
+                    FileSenderSocket.Close();
+
+                    // Send information to the client
+                    OnClientInformation(Messages.GetMessage(201, (string)ar.AsyncState), Responses.Information);
+                    
+                    // Return
+                    return;
+                }
+
                 // Send randomly generated 128 bit AES key
                 FileSenderSocket.Send(Encryptor.Encrypt(FileEncryptor.Key, true));
 
@@ -530,7 +589,7 @@
             }
 
             // Server rejected the file transfer
-            catch { OnClientInformation("Server rejected the file transfer", Responses.Error); }
+            catch(Exception ex) { OnClientInformation(Messages.GetErrorMessage(302, ex.Message), Responses.Error); }
         }
 
         #endregion

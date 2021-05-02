@@ -1,42 +1,34 @@
-﻿namespace NetworkModules.Core
+﻿/// <summary>
+/// Root namespace
+/// </summary>
+namespace NetworkModules.Core
 {
-    /// <summary>
-    /// Required namespaces
-    /// </summary>
     #region Namespaces
     using System.IO;
-    using System.Net.Sockets;
     using System.Security.Cryptography;
     #endregion
 
     /// <summary>
-    /// Carries information about a download
+    /// Handles file decryption
     /// </summary>
-    public class FileDecryptorHandler
+    public class FileDecryptor
     {
         #region File properties
 
         /// <summary>
-        /// Name of the file being downloaded
+        /// The name of the file
         /// </summary>
         public string FileName { get; private set; }
+
         /// <summary>
-        /// Size of the file in bytes
+        /// The size of the file
         /// </summary>
         public long FileSize { get; private set; }
+
         /// <summary>
-        /// Returns the actual size of the file
+        /// The actual size of the file
         /// </summary>
         public long ActualSize { get; private set; }
-
-        #endregion
-
-        #region Sender
-
-        /// <summary>
-        /// Who sends the file?
-        /// </summary>
-        public Socket Sender { get; set; }
 
         #endregion
 
@@ -45,15 +37,17 @@
         /// <summary>
         /// Writer that will create the file
         /// </summary>
-        private FileStream Writer { get; set; }
+        protected FileStream Writer { get; }
+
+        /// <summary>
+        /// The decryptor
+        /// </summary>
+        protected ICryptoTransform Crypto { get; }
+
         /// <summary>
         /// Decryptor
         /// </summary>
-        private AesCryptoServiceProvider Decryptor;
-        /// <summary>
-        /// Crypto
-        /// </summary>
-        private ICryptoTransform Crypto;
+        protected AesCryptoServiceProvider Decryptor { get; }
 
         #endregion
 
@@ -64,33 +58,34 @@
         /// <param name="FileName">Name of the file</param>
         /// <param name="Path">Where to create the file?</param>
         /// <param name="FileSize">Size of the file</param>
-        public FileDecryptorHandler(AesCryptoServiceProvider Decryptor, string FileName, string Path, long FileSize)
+        public FileDecryptor(AesCryptoServiceProvider Decryptor, string FileName, string Path, long FileSize)
         {
             // Set file properties
             this.Decryptor = Decryptor;
             this.FileName = FileName;
             this.FileSize = FileSize;
 
-            // Create the decryptor transform
+            // Create the decryptor
             Crypto = Decryptor.CreateDecryptor();
 
-            // Create the writer
-            Writer = new FileStream($"{Path}\\{FileName}", FileMode.Create, FileAccess.Write);
+            // Create a new FileStream
+            Writer = new FileStream($"{Path}\\{FileName}", FileMode.Create,
+                                                           FileAccess.Write);
         }
 
         #region Functions
 
         /// <summary>
-        /// Encrypts the block and writes it to the file
+        /// Decrypts the bytes and writes them to the current file
         /// </summary>
         /// <param name="Block">Encrypted byte block</param>
         /// <returns>True if file is complete</returns>
         public bool WriteBytes(byte[] Block)
         {
-            // Decrypt the block
+            // Decrypt the bytes
             byte[] Decrypted = Crypto.TransformFinalBlock(Block, 0, Block.Length);
 
-            // Write the dectypted block to the filestream
+            // Write the dectypted bytes to the filestream
             Writer.Write(Decrypted);
 
             // Update the actual size
