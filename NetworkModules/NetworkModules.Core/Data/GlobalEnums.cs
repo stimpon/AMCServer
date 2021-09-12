@@ -44,6 +44,28 @@
         /// <summary>
         /// Read and write permissions
         /// </summary>
-        RW = 2
+        RW = 2,
+
+    }
+
+    /// <summary>
+    /// Modes stating what to do with a file
+    /// </summary>
+    public enum FileModes
+    {
+        /// <summary>
+        /// Nothing is expected to connect to the FTP socket
+        /// </summary>
+        None = -1,
+
+        /// <summary>
+        /// Server => Client
+        /// </summary>
+        Send = 0,
+
+        /// <summary>
+        /// Server <= Client
+        /// </summary>
+        Download = 1
     }
 }

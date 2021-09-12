@@ -32,7 +32,7 @@
         public string ConnenctedTime { get; set; } = DateTime.Now.ToString();
 
         /// <summary>
-        /// The connection
+        /// The socket for this connection
         /// </summary>
         public Socket ClientConnection { get; internal set; }
 
@@ -54,9 +54,14 @@
         #region Client connection
 
         /// <summary>
-        /// Reads the remote ip from the socket
+        /// Reads the remote ip + port from the socket
         /// </summary>
         public string ClientConnectionString { get => ClientConnection.RemoteEndPoint.ToString(); }
+
+        /// <summary>
+        /// Gets this clients IP address
+        /// </summary>
+        public string IP { get => ClientConnectionString.Split(':')[0]; }
 
         /// <summary>
         /// This client's global data buffer
@@ -93,7 +98,7 @@
         /// <value>
         /// The file transfer connection.
         /// </value>
-        public Socket FileRecSocket { get; set; }
+        public Socket FTSocket { get; set; }
 
         /// <summary>
         /// This client's global data buffer

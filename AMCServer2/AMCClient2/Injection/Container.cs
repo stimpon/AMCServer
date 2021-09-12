@@ -1,8 +1,13 @@
-﻿using NetworkModules.Client;
-using Ninject;
-
+﻿/// <summary>
+/// Required namespaces
+/// </summary>
 namespace AMCClient2
 {
+    #region Namespaces
+    using NetworkModules.Client;
+    using Ninject;
+    #endregion
+
     /// <summary>
     /// This is the IoC Container
     /// </summary>

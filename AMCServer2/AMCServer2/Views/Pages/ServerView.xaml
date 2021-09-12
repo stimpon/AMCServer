@@ -198,7 +198,7 @@
                         <Run Text="| Server state: "/><Run Text="{Binding ServerHandler.ServerState, Source={x:Static local:Container.Instance}, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}"/>
                     </TextBlock>
                     <TextBlock VerticalAlignment="Center" Foreground="White" FontFamily="Consolas" FontSize="13" Margin="10,0,0,0">
-                        <Run Text="| FT socket state: "/><Run Text="{Binding ServerHandler.FileTransferState, Source={x:Static local:Container.Instance}, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        <Run Text="| File transfer state: "/><Run Text="{Binding ServerHandler.FileTransferState, Source={x:Static local:Container.Instance}, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}"/>
                     </TextBlock>
                     <TextBlock VerticalAlignment="Center" Foreground="White" FontFamily="Consolas" FontSize="13" Margin="10,0,0,0">
                         <Run Text="| Bound client: "/><Run Text="{Binding ServerHandler.BoundClient, Source={x:Static local:Container.Instance}, Mode=OneWay}"/>
@@ -208,7 +208,7 @@
                 
                 
                 <!--Terminal-->
-                <ListBox Grid.Row="2" ItemsSource="{Binding ServerLog}" BorderThickness="0" Background="Black" Margin="0,0,0,25" 
+                <ListBox x:Name="ServerTerminal" Grid.Row="2" ItemsSource="{Binding ServerLog}" BorderThickness="0" Background="Black" Margin="0,0,0,25" 
                           ScrollViewer.HorizontalScrollBarVisibility="Hidden">
 
                     <ListBox.ItemContainerStyle>
@@ -241,13 +241,14 @@
                 <TextBox Margin="0" Height="25" VerticalAlignment="Bottom" 
                          Background="Black" BorderThickness="0" IsReadOnly="False"
                          Grid.Row="2" Foreground="White" 
-                         FontFamily="Consolas" FontSize="13" Text="{Binding CommandString, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                         FontFamily="Consolas" FontSize="13" Text="{Binding CommandString, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" 
                          VerticalContentAlignment="Center" TabIndex="0" x:Name="ConsoleInput">
                     
                     <!-- Handle input -->
                     <TextBox.InputBindings>
                         <KeyBinding Command="{Binding Path=ExecuteCommand}" Key="Return"/>
                         <KeyBinding Command="{Binding Path=PreviousCommand}" Key="Up"/>
+                        <KeyBinding Command="{Binding Path=NextCommand}" Key="Down"/>
                     </TextBox.InputBindings>
                     
                 </TextBox>

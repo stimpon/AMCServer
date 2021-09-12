@@ -42,8 +42,10 @@ namespace NetworkModules.Core
             // Loop through all parameters
             for (int i = 0; i < parameters.Length; i++)
             {
-                // insert the parameter
-                row = row.Replace("{" + i + "}", parameters[i].ToString());
+                // If the parameter is not null...
+                if(parameters[i] != null)
+                    // insert the parameter
+                    row = row.Replace("{" + i + "}", parameters[i].ToString());
             }
 
             // return the message string

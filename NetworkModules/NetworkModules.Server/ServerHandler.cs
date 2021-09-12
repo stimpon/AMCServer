@@ -79,6 +79,11 @@
         #region Private members
 
         /// <summary>
+        /// The ID that should be assigned to the next client
+        /// </summary>
+        private int IDs;
+
+        /// <summary>
         /// The server socket
         /// </summary>
         private Socket ServerSocket;
@@ -233,7 +238,6 @@
 
             // Close all sockets
             ServerSocket.Close();
-            FileTransferSocket.Close();
 
             // Set the serverstate to offline
             ServerState = ServerStates.Offline;
@@ -250,50 +254,17 @@
         /// </summary>
         public void StartFileTransferSocket()
         {
-            // If the server is not running
-            if(ServerState != ServerStates.Online)
-            {
-                // Raise information event
-                OnServerInformation(Messages.GetErrorMessage(108), Responses.Information);
-                // Return since the file-transfer socket can't be started at the moment
-                return;
-            }
+            // Set the filetransfer endpoint
+            DownloadingEndPoint = new IPEndPoint(IPAddress.Any, FTPPort);
+            // Create downloadingsocket
+            FileTransferSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            // Bind the file transfer socket
+            FileTransferSocket.Bind(DownloadingEndPoint);
+            // Begin listening
+            FileTransferSocket.Listen(1);
 
-            #region Filetransfer socket setup
-
-            // Set the state of the file transfer socket
-            FileTransferState = ServerStates.StartingUp;
-
-            // Try to bind the file transfer socket
-            try
-            {
-                // Set the filetransfer endpoint
-                DownloadingEndPoint = new IPEndPoint(IPAddress.Any, FTPPort);
-
-                // Create downloadingsocket
-                FileTransferSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                // Bind the file transfer socket
-                FileTransferSocket.Bind(DownloadingEndPoint);
-                // Begin listening
-                FileTransferSocket.Listen(3);
-
-                // Set the filetransfer state
-                FileTransferState = ServerStates.Online;
-
-                // Call the information event
-                OnServerInformation(Messages.GetMessage(106), Responses.OK);
-            }
-            // Handle errors here ...
-            catch (SocketException se)
-            {
-                // Send error event
-                OnServerInformation(Messages.GetErrorMessage($"{se.ErrorCode}B"), Responses.Error);
-
-                // Set the file transfer state
-                FileTransferState = ServerStates.Offline;
-            }
-
-            #endregion
+            // Indicate that file-transfer is available
+            FileTransferState = ServerStates.Online;
         }
 
         /// <summary>
@@ -301,23 +272,11 @@
         /// </summary>
         public void StopFileTransferSocket()
         {
-            // If the file-transfer socket is not running
-            if(FileTransferState != ServerStates.Online)
-            {
-                // Call the information event
-                OnServerInformation(Messages.GetMessage(203), Responses.Warning);
-                // Return since the file-transfer socket is not running
-                return;
-            }
-
-            // Closes the file transfer socket
+            // Close the file transfer socket
             FileTransferSocket.Close();
 
-            // Set the new state of the file transfer socket
+            // Indicate that file-transfer is not available
             FileTransferState = ServerStates.Offline;
-
-            // Call the information event
-            OnServerInformation(Messages.GetMessage(202), Responses.OK);
         }
 
         /// <summary>
@@ -439,16 +398,7 @@
         }
 
         /// <summary>
-        /// Sends a file to a client, the client must accept the file before the server can send it
-        /// </summary>
-        /// <param name="ClientID">Client to send the file to</param>
-        /// <param name="filePath">Path to the file</param>
-        public void SendFile(int clientID, string filePath)
-        {
-        }
-
-        /// <summary>
-        /// This function needs to be called before the server can receive a file from a connection and
+        /// This function needs to be called before the server can receive a file from a client
         /// </summary>
         /// <param name="clientID">Client to receive the file from</param>
         /// <param name="path">Path where to save the file</param>
@@ -477,13 +427,43 @@
                 DownloadingDirectory = path;
 
                 // Begin accepting
-                FileTransferSocket.BeginAccept(new AsyncCallback(DownloadAcceptCallback),
-                                               client);
+                FileTransferSocket.BeginAccept(new AsyncCallback(FileTransferAcceptCallback),
+                    new FTar() { Client = client, Action = FileModes.Download });
             }
             // Else if an invalid client ID was specified
             else
                 // Raise error message
                 OnServerInformation(Messages.GetErrorMessage(502, clientID), Responses.Error);
+        }
+
+        /// <summary>
+        /// This function must be called before the server can send a file to a client
+        /// </summary>
+        /// <param name="filePath">The file to send</param>
+        /// <param name="clientID">The cliend to send the file to</param>
+        public void BeginSendFile(string filePath, int clientID)
+        {
+            // If the file transfer socket is not running...
+            if (FileTransferState != ServerStates.Online) return; // Exit
+
+            // If the file does not exist...
+            if (!File.Exists(filePath)) return; // Exit
+
+            // Find the client with the provided ID
+            var client = ActiveConnections.FirstOrDefault(c => c.ID == clientID);
+
+            // If a client with the provided ID exist
+            if(client != null)
+            {
+                // Let that connection connect to the file-transfer socket
+                FileTransferSocket.BeginAccept(new AsyncCallback(FileTransferAcceptCallback),
+                    new FTar()
+                    {
+                        Client = client,
+                        Action = FileModes.Send,
+                        OptionalParameters = filePath
+                    });
+            }
         }
 
         #endregion
@@ -495,6 +475,9 @@
         /// </summary>
         private void Initialize()
         {
+            // Reset the ID counter
+            IDs = 0;
+
             // Create the message handler
             this.Messages = new Messages();
 
@@ -505,6 +488,46 @@
             ServerState = ServerStates.Offline;
             // Set state of the file transfer socket to offline
             FileTransferState = ServerStates.Offline;
+        }
+
+        /// <summary>
+        /// Sends a file to a client
+        /// </summary>
+        /// <param name="FilePath"></param>
+        /// <param name="PacketSize"></param>
+        private void SendFile(string FilePath, ConnectionViewModel client, AesCryptoServiceProvider FileEncryptor)
+        {
+            // Create encryptor
+            ICryptoTransform Crypto = FileEncryptor.CreateEncryptor();
+
+            // Open the file
+            using (FileStream fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read))
+            {
+                // Continue to read bytes until the end of the file is hit
+                while (fs.Position < fs.Length)
+                {
+                    // Create block and fill it with bytes
+                    // from the file
+                    byte[] Block = new byte[512];
+                    int Read = fs.Read(Block, 0, Block.Length);
+
+                    // Resize the block to the correct size
+                    Array.Resize(ref Block, Read);
+
+                    // Encrypt the block
+                    var Encrypyted = Crypto.TransformFinalBlock(Block, 0, Block.Length);
+
+                    // Send the block to the server
+                    client.FTSocket.Send(Encrypyted);
+                }
+            }
+
+            // Clear key and IV from memory as it is not needed anymore
+            Array.Clear(FileEncryptor.Key, 0, FileEncryptor.Key.Length);
+            Array.Clear(FileEncryptor.IV, 0, FileEncryptor.IV.Length);
+
+            // Send message stating that the file was sent to the server successfuly
+            OnServerInformation(Messages.GetMessage(111, new FileInfo(FilePath).Name, client.ID), Responses.OK);
         }
 
         #endregion
@@ -565,6 +588,7 @@
                     // Create the Client obejct
                     var ClientConnection = new ConnectionViewModel()
                     {
+                        ID                    = IDs,
                         ClientConnection      = s,
                         Verified              = true,
                         CurrentDataSize       = 0,
@@ -625,6 +649,9 @@
                 // Always do
                 finally
                 {
+                    // Increment the next if for the next client
+                    IDs++;
+
                     // Begin accepting more connections
                     ServerSocket.BeginAccept(new AsyncCallback(ServerAcceptCallback), null);
                 }
@@ -640,116 +667,125 @@
         /// <param name="ar"></param>
         private void ServerReceiveCallback(IAsyncResult ar)
         {
-            // Get the conenction object from the list of active connections
-            var _client = ActiveConnections.FirstOrDefault(c => c.ClientConnection.Equals((Socket)ar.AsyncState));
-
-            // If server is shuting down
-            if (_client.ClientConnection.Connected == false) 
+            try
             {
-                // Close the connection
-                _client.ClientConnection.Close();
-                // Remove client from the list of active connections
-                ActiveConnections.Remove(_client);
+                // Get the conenction object from the list of active connections
+                var _client = ActiveConnections.FirstOrDefault(c => c.ClientConnection.Equals((Socket)ar.AsyncState));
 
-                // Return and kill this thread
-                return;
-            }
-
-            // Holds the amount of bytes received
-            int Rec = _client.ClientConnection.EndReceive(ar);
-
-            // Check if empty byte packet was sent
-            if (Rec > 0)
-            {
-                // Create new buffer and resize it to the correct size
-                byte[] ReceivedBytes = _client.DataBuffer;
-                Array.Resize(ref ReceivedBytes, Rec);
-
-                // Append the received bytes to the byte queue
-                _client.ByteQueue.AddRange(ReceivedBytes);
-
-                // Loop through all of the packets in the buffer
-                for (int PacketStart = 0; PacketStart < Rec; PacketStart += 256)
+                // If server is shuting down
+                if (_client.ClientConnection.Connected == false) 
                 {
-                    // Declare byte packet
-                    byte[] _packet = new byte[0];
+                    // Close the connection
+                    _client.ClientConnection.Close();
+                    // Remove client from the list of active connections
+                    ActiveConnections.Remove(_client);
 
-                    // If the current packet is not a whole packet (all bytes have not been received yet)
-                    if (PacketStart + 256 > ReceivedBytes.Length)
-                        break;
+                    // Return and kill this thread
+                    return;
+                }
 
-                    // Read the next block of bytes in this clients queue
-                    _packet = _client.ByteQueue.GetRange(0, 256).ToArray();
+                // Holds the amount of bytes received
+                int Rec = _client.ClientConnection.EndReceive(ar);
 
-                    // Check if is is the first packet in the buffer
-                    if (_client.CurrentDataSize.Equals(0))
+                // Check if empty byte packet was sent
+                if (Rec > 0)
+                {
+                    // Create new buffer and resize it to the correct size
+                    byte[] ReceivedBytes = _client.DataBuffer;
+                    Array.Resize(ref ReceivedBytes, Rec);
+
+                    // Append the received bytes to the byte queue
+                    _client.ByteQueue.AddRange(ReceivedBytes);
+
+                    // Loop through all of the packets in the buffer
+                    for (int PacketStart = 0; PacketStart < Rec; PacketStart += 256)
                     {
+                        // Declare byte packet
+                        byte[] _packet = new byte[0];
 
-                        // The signature needs to be received first
-                        if (_client.CurrentDataSignature.Length.Equals(0))
+                        // If the current packet is not a whole packet (all bytes have not been received yet)
+                        if (PacketStart + 256 > ReceivedBytes.Length)
+                            break;
+
+                        // Read the next block of bytes in this clients queue
+                        _packet = _client.ByteQueue.GetRange(0, 256).ToArray();
+
+                        // Check if is is the first packet in the buffer
+                        if (_client.CurrentDataSize.Equals(0))
                         {
-                            // Save the signature for comparison later
-                            _client.CurrentDataSignature = _packet;
-                        }
-                        else
-                        {
-                            // Get the expected data size
-                            _client.CurrentDataSize = long.Parse(Encoding.Default.GetString(
-                                                                  _client.Decryptor.Decrypt(
-                                                                  _packet, true)));
-                            // Empty the client's datastring
-                            _client.CurrentDataString = String.Empty;
-                        }
-                    }
-                    // Keep adding the data to the datastring
-                    else
-                    {
-                        // Decrypt the packet and add it to the datastring
-                        _client.CurrentDataString += Encoding.Default.GetString(
-                                                _client.Decryptor.Decrypt(
-                                                _packet, true));
 
-                        // Check if all btyes has been received
-                        if (_client.CurrentDataString.Length == _client.CurrentDataSize)
-                        {
-                            // Create a hasher
-                            var Hasher = SHA256.Create();
-
-                            // Hash the received data
-                            var Hash = Hasher.ComputeHash(Encoding.Default.GetBytes(_client.CurrentDataString));
-
-                            // Verify the signed hash with the computed hash
-                            if (_client.Encryptor.VerifyHash(Hash, _client.CurrentDataSignature,
-                                                             HashAlgorithmName.SHA256,
-                                                             RSASignaturePadding.Pkcs1))
+                            // The signature needs to be received first
+                            if (_client.CurrentDataSignature.Length.Equals(0))
                             {
-                                // Call the event
-                                OnDataReceived(_client, _client.CurrentDataString);
-                                // Reset the datasize
-                                _client.CurrentDataSize = 0;
+                                // Save the signature for comparison later
+                                _client.CurrentDataSignature = _packet;
                             }
                             else
                             {
-                                // Send a warning
-                                OnServerInformation(Messages.GetWarning(300, _client.ClientConnectionString, _client.CurrentDataString), 
-                                    Responses.Warning);
+                                // Get the expected data size
+                                _client.CurrentDataSize = long.Parse(Encoding.Default.GetString(
+                                                                      _client.Decryptor.Decrypt(
+                                                                      _packet, true)));
+                                // Empty the client's datastring
+                                _client.CurrentDataString = String.Empty;
                             }
-
-                            // Clear the signature
-                            _client.CurrentDataSignature = new byte[0];
                         }
+                        // Keep adding the data to the datastring
+                        else
+                        {
+                            // Decrypt the packet and add it to the datastring
+                            _client.CurrentDataString += Encoding.Default.GetString(
+                                                    _client.Decryptor.Decrypt(
+                                                    _packet, true));
+
+                            // Check if all btyes has been received
+                            if (_client.CurrentDataString.Length == _client.CurrentDataSize)
+                            {
+                                // Create a hasher
+                                var Hasher = SHA256.Create();
+
+                                // Hash the received data
+                                var Hash = Hasher.ComputeHash(Encoding.Default.GetBytes(_client.CurrentDataString));
+
+                                // Verify the signed hash with the computed hash
+                                if (_client.Encryptor.VerifyHash(Hash, _client.CurrentDataSignature,
+                                                                 HashAlgorithmName.SHA256,
+                                                                 RSASignaturePadding.Pkcs1))
+                                {
+                                    // Call the event
+                                    OnDataReceived(_client, _client.CurrentDataString);
+                                    // Reset the datasize
+                                    _client.CurrentDataSize = 0;
+                                }
+                                else
+                                {
+                                    // Send a warning
+                                    OnServerInformation(Messages.GetWarning(300, _client.ClientConnectionString, _client.CurrentDataString), 
+                                        Responses.Warning);
+                                }
+
+                                // Clear the signature
+                                _client.CurrentDataSignature = new byte[0];
+                            }
+                        }
+
+                        // Remove the range of bytes that the server has handled
+                        _client.ByteQueue.RemoveRange(0, 256);
                     }
-
-                    // Remove the range of bytes that the server has handled
-                    _client.ByteQueue.RemoveRange(0, 256);
                 }
-            }
 
-            // Begin to receive more data
-            _client.ClientConnection.BeginReceive(_client.DataBuffer, 0, BufferSize,
-                                                       SocketFlags.None,
-                                                       new AsyncCallback(ServerReceiveCallback),
-                                                       _client.ClientConnection);
+                // Begin to receive more data
+                _client.ClientConnection.BeginReceive(_client.DataBuffer, 0, BufferSize,
+                                                           SocketFlags.None,
+                                                           new AsyncCallback(ServerReceiveCallback),
+                                                           _client.ClientConnection);
+            }
+            // If errors occurred while receiving data from a client
+            catch (Exception ex)
+            {
+                // Send information stating the occurred error
+                OnServerInformation(ex.Message, Responses.Error);
+            }
         }
 
         #endregion
@@ -762,68 +798,150 @@
         /// Callback for when a client connects to the downloading socket
         /// </summary>
         /// <param name="ar"></param>
-        private void DownloadAcceptCallback(IAsyncResult ar)
+        private void FileTransferAcceptCallback(IAsyncResult ar)
         {
-            // Get the client sending the file
-            var client = (ConnectionViewModel)ar.AsyncState;
-            // Set the file transfer socket
-            client.FileRecSocket = FileTransferSocket.EndAccept(ar);
-            // Create the buffer for the client
-            client.DownloadBuffer = new byte[BufferSize];
-            // Create the download byte queue for the client
-            client.DownloadByteQueue = new System.Collections.Generic.List<byte>();
+            // Define a null client
+            ConnectionViewModel client = null;
+            // The action to preform
+            FileModes mode = FileModes.None;
 
-            // *******************************************************
-            // * If the server fails to decrypt the received AES     *
-            // * Key and IV, then we know that an invalid connection *
-            // * was established so then close the socket            *
-            // *******************************************************
-
+            // Only resolve ar and continue if the connection came from a valid client
             try
             {
-                // Variable to store received data
-                byte[] Data = new byte[256];
+                // Get the ar
+                var ftar = (FTar)ar.AsyncState;
 
-                // Create decryptor
-                AesCryptoServiceProvider FileDecryptor = new AesCryptoServiceProvider();
-                FileDecryptor.Mode         = CipherMode.CBC;
-                FileDecryptor.KeySize      = 128;
-                FileDecryptor.BlockSize    = 128;
-                FileDecryptor.FeedbackSize = 128;
-                FileDecryptor.Padding      = PaddingMode.PKCS7;
+                // Extract properties from the ar
+                client = ftar.Client;
+                mode = ftar.Action;
 
-                // Receive 128 bin AES key
-                client.FileRecSocket.Receive(Data);
-                FileDecryptor.Key = client.Decryptor.Decrypt(Data, true);
+                // Set the file transfer socket
+                client.FTSocket = FileTransferSocket.EndAccept(ar);
+                // Create the buffer for the client
+                client.DownloadBuffer = new byte[BufferSize];
+                // Create the download byte queue for the client
+                client.DownloadByteQueue = new System.Collections.Generic.List<byte>();
+            }
+            catch
+            {
+                // This will only happen if the connection was established from an unknow source
 
-                // Receive IV
-                client.FileRecSocket.Receive(Data);
-                FileDecryptor.IV = client.Decryptor.Decrypt(Data, true);
+                // Send information stating that an unknown connection tried to connect
+                OnServerInformation(Messages.GetWarning(301), Responses.Warning);
 
-                // Receive filename
-                client.FileRecSocket.Receive(Data);
-                string FileName = Encoding.Default.GetString(client.Decryptor.Decrypt(Data, true));
+                // Exit
+                return;
+            }
 
-                // Receive filesize
-                client.FileRecSocket.Receive(Data);
-                long FileSize = long.Parse(Encoding.Default.GetString(client.Decryptor.Decrypt(Data, true)));
+            // If we are gonna receive a file from this client
+            if(mode == FileModes.Download)
+            {
+                #region Declare variables
 
-                // Begin receiving file 
-                client.FileRecSocket.BeginReceive(client.DownloadBuffer, 0, client.DownloadBuffer.Length, SocketFlags.None,
-                    new AsyncCallback(DownloadSocketReceiveCallback), 
+                // Create the file decryptor
+                AesCryptoServiceProvider FileDecryptor = null;
+                // Declare filename
+                string FileName = String.Empty;
+                // Declare filesize
+                long FileSize = -1; 
+
+                #endregion
+
+                try
+                {
+                    // *******************************************************
+                    // * If the server fails to decrypt the received AES     *
+                    // * Key and IV, then we know that an invalid connection *
+                    // * was established so then close the socket            *
+                    // *******************************************************
+
+                    // Variable to store received data
+                    byte[] Data = new byte[256];
+
+                    // Create decryptor
+                    FileDecryptor = Cryptography.CreateAesEncryptor(false, false);
+
+                    // Receive 128 bin AES key
+                    client.FTSocket.Receive(Data);
+                    FileDecryptor.Key = client.Decryptor.Decrypt(Data, true);
+
+                    // Receive IV
+                    client.FTSocket.Receive(Data);
+                    FileDecryptor.IV = client.Decryptor.Decrypt(Data, true);
+
+                    // Receive filename
+                    client.FTSocket.Receive(Data);
+                    FileName = Encoding.Default.GetString(client.Decryptor.Decrypt(Data, true));
+
+                    // Receive filesize
+                    client.FTSocket.Receive(Data);
+                    FileSize = long.Parse(Encoding.Default.GetString(client.Decryptor.Decrypt(Data, true)));
+                }
+
+                // Close the connection if it didn't work
+                catch(Exception ex)
+                { 
+                    // Close the connection
+                    client.FTSocket.Close(); 
+                    // Send error message stating what happened
+                    OnServerInformation(ex.Message, Responses.Error);
+                }
+
+                // Begin receiving file from the client
+                client.FTSocket.BeginReceive(client.DownloadBuffer, 0, client.DownloadBuffer.Length, SocketFlags.None,
+                    new AsyncCallback(DownloadSocketReceiveCallback),
                     // Create a new FileHandler and pass it to the callback function
                     new FileDecryptorHandler(FileDecryptor,
                                              FileName,
                                              DownloadingDirectory,
-                                             FileSize) { Sender = client } );;
+                                             FileSize)
+                    { Sender = client });
+            }
+            // If the server is gonna send a file to this client
+            else if (mode == FileModes.Send)
+            {
+                // Create encryptor
+                var FileEncryptor = Cryptography.CreateAesEncryptor();
+
+                // Extract file from ar
+                string file = ((FTar)ar.AsyncState).OptionalParameters as string;
+
+                // Todo: Check if the file is accessable
+                try
+                {
+                    // Try opening the file and then close it
+                    using (FileStream fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.None)) { fs.Close(); }
+                }
+                // If not...
+                catch
+                {
+                    // Close the socket
+                    client.FTSocket.Close();
+
+                    // Send information that a file that is being used by another provess if trying to be downloaded by a client
+                    OnServerInformation(Messages.GetMessage(110, client.ID, file), Responses.Information);
+
+                    // Exit
+                    return;
+                }
+
+                // Send randomly generated 128 bit AES key
+                client.FTSocket.Send(client.Encryptor.Encrypt(FileEncryptor.Key, true));
+
+                // Send randomly generated IV
+                client.FTSocket.Send(client.Encryptor.Encrypt(FileEncryptor.IV, true));
+
+                // Send filename
+                client.FTSocket.Send(client.Encryptor.Encrypt(Encoding.Default.GetBytes(new FileInfo(file).Name), true));
+
+                // Send filesize
+                client.FTSocket.Send(client.Encryptor.Encrypt(Encoding.Default.GetBytes((new FileInfo(file).Length.ToString())), true));
+
+                // Send the file
+                SendFile(((FTar)ar.AsyncState).OptionalParameters as string, client, FileEncryptor);
+
             }
 
-            // Close the connection if it didn't work
-            catch(Exception ex)
-            { 
-                client.FileRecSocket.Close(); 
-                OnServerInformation(ex.Message, Responses.Error);
-            }
         }
 
         /// <summary>
@@ -837,7 +955,7 @@
             FileDecryptorHandler FileHandler = ar.AsyncState as FileDecryptorHandler;
 
             // Get the amount of bytes received
-            int Rec = FileHandler.Sender.FileRecSocket.EndReceive(ar);
+            int Rec = FileHandler.Sender.FTSocket.EndReceive(ar);
 
             // Check if any bytes where sent
             if (Rec > 0)
@@ -895,7 +1013,7 @@
                             catch
                             {
                                 // Close the file transfer socket for this client
-                                FileHandler.Sender.FileRecSocket.Close();
+                                FileHandler.Sender.FTSocket.Close();
 
                                 // Log message stating that the file could not be recieved
                                 OnServerInformation(Messages.GetErrorMessage(109), Responses.Error);
@@ -914,14 +1032,14 @@
                             if (fileDownloaded)
                             {
                                 OnServerInformation(Messages.GetMessage(104, FileHandler.FileName), Responses.OK);
-                                FileHandler.Sender.FileRecSocket.Close();
+                                FileHandler.Sender.FTSocket.Close();
                                 return;
                             }
 
                         }
                 }
                 // Keep receiving bytes
-                FileHandler.Sender.FileRecSocket.BeginReceive(FileHandler.Sender.DownloadBuffer, 0, 
+                FileHandler.Sender.FTSocket.BeginReceive(FileHandler.Sender.DownloadBuffer, 0, 
                                                               FileHandler.Sender.DownloadBuffer.Length, 
                                                               SocketFlags.None,
                                                               new AsyncCallback(DownloadSocketReceiveCallback), FileHandler);

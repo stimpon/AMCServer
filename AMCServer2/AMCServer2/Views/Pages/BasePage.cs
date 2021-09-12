@@ -5,6 +5,7 @@
     /// </summary>
     #region Namespaces
     using System.Windows.Controls;
+    using AMCCore;
     #endregion
 
     /// <summary>

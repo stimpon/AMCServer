@@ -1,6 +1,9 @@
-﻿namespace AMCClient2
+﻿/// <summary>
+/// Root namespace
+/// </summary>
+namespace AMCClient2
 {
-    // Required namespaces
+    #region Required namespaces
     using System;
     using System.Linq;
     using System.IO;
@@ -10,11 +13,13 @@
     using NetworkModules.Client;
     using System.Windows.Input;
     using AMCCore;
+    using System.Windows.Data;
+    #endregion
 
     /// <summary>
     /// ViewModel for the Client Interface
     /// </summary>
-    public class ClientInterfaceViewModel : BaseViewModel
+    public class ClientInterfaceViewModel : BaseInterfaceViewModel
     {
         #region Public Properties
 
@@ -22,6 +27,13 @@
         /// Single instance of this ViewModel
         /// </summary>
         public static ClientInterfaceViewModel VM { get; set; }
+
+        /// <summary>
+        /// The current path in the explorer
+        /// </summary>
+        public string CurrentPathOnServerPC { get; set; }
+
+        #endregion
 
         #region Commands
 
@@ -45,80 +57,100 @@
         /// </summary>
         public ICommand PreviousCommand { get; set; }
 
-        #region Current download properties
-
-        /// <summary>
-        /// Name of the file
-        /// </summary>
-        public string FileName { get; set; }
-        /// <summary>
-        /// Size of the file
-        /// </summary>
-        public decimal Size { get; set; } = 1;
-        /// <summary>
-        /// Downloaded bytes
-        /// </summary>
-        public decimal ActualSize { get; set; } = 0;
-        /// <summary>
-        /// String for the View
-        /// </summary>
-        public string ProgresString { get; set; }
-
         #endregion
 
-        #endregion
+        #region Overrided properties     
+        
+        /// <summary>
+        /// The current position in the <see cref="F:AMCCore.BaseInterfaceViewModel.CommandHistory" />
+        /// </summary>
+        public override int CurrentCommandIndex { get; set; }
+        /// <summary>
+        /// The string that is linked to the command box
+        /// </summary>
+        public override string CommandString { get; set; }
 
         /// <summary>
         /// This is the serverlog that will be displayed in the server console
         /// </summary>
-        public ThreadSafeObservableCollection<ILogMessage> ClientLog { get; set; }
+        public override ThreadSafeObservableCollection<ILogMessage> Terminal { get; set; }
 
         /// <summary>
         /// These are the items that will be displayed in the explorer
         /// </summary>
-        public ThreadSafeObservableCollection<FileExplorerObject> ExplorerItems { get; set; }
+        public override ThreadSafeObservableCollection<FileExplorerObject> ExplorerItems { get; set; }
 
         /// <summary>
-        /// The current path in the explorer
+        /// Name of the file
         /// </summary>
-        public string CurrentPathOnServerPC { get; set; }
-
+        public override string FileName { get; set; }
         /// <summary>
-        /// The string that is linked to the command box
+        /// Size of the file
         /// </summary>
-        public string CommandString
-        {
-            get;
-            set;
-        } = String.Empty;
+        public override decimal Size { get; set; }
+        /// <summary>
+        /// Downloaded bytes
+        /// </summary>
+        public override decimal ActualSize { get; set; }
+        /// <summary>
+        /// String for the View
+        /// </summary>
+        public override string ProgresString { get; set; }
 
         #endregion
 
-        #region Private members
-
-        /// <summary>
-        /// The current position in the <see cref="CommandHistory"/>
-        /// </summary>
-        private int CurrentCommandIndex { get; set; } = 0;
-
-        /// <summary>
-        /// Array to save all executed commands
-        /// </summary>
-        private string[] CommandHistory;
-
-        #endregion
+        #region Default constructor
 
         /// <summary>
         /// Default constructor
         /// </summary>
-        public ClientInterfaceViewModel()
+        public ClientInterfaceViewModel() : base()
         {
             if (ProgramState.IsRunning)
                 // Call the Init method when a new instance of this VM is created
                 Initialize();
         }
 
-        #region Functions
+        #endregion
+
+        #region private functions
+
+        // One-time functions to run when initializing======================================================>
+
+        /// <summary>
+        /// Creates the commands for the interface.
+        /// </summary>
+        private void CreateCommands()
+        {
+            // Command for exetuting commands
+            ExecuteCommand = new RelayCommandNoParameters(ExecuteCommandEvent);
+            // Previous command command
+            PreviousCommand = new RelayCommandNoParameters(PreviousCommandEvent);
+            // Navigate command
+            ExplorerDoubleClick = new RelayCommand(NavigateEvent, (o) => { return true; });
+            // Download command
+            DownloadFileClick = new RelayCommand(DownloadEvent);
+        }
+        /// <summary>
+        /// Subscribes to events.
+        /// </summary>
+        private void SubscribeToEvents()
+        {
+            // Subscribe to client events
+            Container.Get<ClientHandler>().ClientInformation += OnClientInformation;
+            Container.Get<ClientHandler>().DataReceived += OnDataReceived;
+            Container.Get<ClientHandler>().DownloadInformation += OnDownloadInformation;
+        }
+        /// <summary>
+        /// Creates the binding operations.
+        /// </summary>
+        private void CreateBindingOperations()
+        {
+            BindingOperations.EnableCollectionSynchronization(Terminal, _TerminalLock);
+            BindingOperations.EnableCollectionSynchronization(ExplorerItems, _ExplorerLock);
+        }
+
+        // ===============================================================>
 
         /// <summary>
         /// First function that will be called when a new instance
@@ -128,85 +160,21 @@
         {
             // Set the accessable ViewModel to this class
             VM = this;
-
-            // Create the command history
-            CommandHistory = new string[0];
-
+            
             // This is the standard message that shows when the program starts
-            ClientLog = new ThreadSafeObservableCollection<ILogMessage>() {
+            Terminal = new ThreadSafeObservableCollection<ILogMessage>() {
                 new LogMessage() { Content = "AMCClient [Version 1.0.0]", ShowTime = false, Type = Responses.Information } ,
                 new LogMessage() { Content = "(c) 2021 Stimpon",          ShowTime = false, Type = Responses.Information } ,
             };
-            ExplorerItems = new ThreadSafeObservableCollection<FileExplorerObject>();
 
-            #region Create commands
-
-            // Command for exetuting commands
-            ExecuteCommand = new RelayCommandNoParameters(ExecuteCommandEvent);
-            // Previous command command
-            PreviousCommand = new RelayCommandNoParameters(PreviousCommandEvent);
-            // Navigate command
-            ExplorerDoubleClick = new RelayCommand(NavigateEvent, (o) => { return true; });
-
-            #endregion
-
-            // Subscribe to server events
-            Container.Get<ClientHandler>().ClientInformation += OnClientInformation;
-            Container.Get<ClientHandler>().DataReceived      += OnDataReceived;
+            // Create binding operations
+            CreateBindingOperations();
+            // Subscribe to events
+            SubscribeToEvents();
+            // Create all the commands
+            CreateCommands();
         }
 
-        /// <summary>
-        /// Resoleves the executed command
-        /// </summary>
-        private void ResolveCommand()
-        {
-            // Check if input commands
-
-            // :msg + [STRING] >> Send message to the server
-            if (CommandString.ToLower().StartsWith(":msg "))
-                Container.Get<ClientHandler>().Send("[PRINT]" + CommandString.Substring(5));
-
-            #region Commands without flags
-
-            else
-            {
-                switch (CommandString.ToLower())
-                {
-                    // :connect >> Connect to the server
-                    case "connect": Container.Get<ClientHandler>().Connect(); break;
-
-                    // :start >> Start the server
-                    case "cls": ClientLog.Clear(); break;
-
-                    // :getdrives >> Query drive info from the bound client
-                    case "getdrives":
-                        // Prepare the explorer
-                        ExplorerItems.Clear();
-                        // Clear current path
-                        CurrentPathOnServerPC = String.Empty;
-                        // If the message was sent successfuly, clear the explorer to prepare it for the incoming data
-                        Container.Get<ClientHandler>().Send("[DRIVES]");
-                        break;
-
-                    // :help >> Provide help information
-                    case "help":
-                        foreach (string ch in File.ReadAllLines(Environment.CurrentDirectory + "\\Program Files\\Commands.txt"))
-                            ClientLog.Add(new LogMessage()
-                            {
-                                Content = ch,
-                                ShowTime = false
-                            }); break;
-
-                    // Invalid command
-                    default:
-                        ClientLog.Add(new LogMessage() { Content = $"'{CommandString}' is not recognized as a command, use ':h' for help", ShowTime = false });
-                        return;
-                }
-            }
-
-            #endregion
-
-        }
 
         /// <summary>
         /// Send all servers to the servers
@@ -295,7 +263,7 @@
         private void OnClientInformation(object sender, InformationEventArgs e)
         {
             // forward the message to the console
-            ClientLog.Add(new LogMessage()
+            Terminal.Add(new LogMessage()
             {
                 Content = e.Information,
                 EventTime = DateTime.Now.ToString(),
@@ -333,7 +301,7 @@
                 // Split the received data
                 string[] data = Data.Substring(7).Split('|');
                 // Create the object and add it to the list
-                ExplorerItems.Add(new FileExplorerObject()
+                AddExplorerItem(new FileExplorerObject()
                 {
                     Name = $"{data[1]} ({data[0]})",
                     Path = data[0],
@@ -348,7 +316,7 @@
                 string[] data = Data.Substring(6).Split('|');
 
                 // Create the object and add it to the list
-                ExplorerItems.Add(new FileExplorerObject()
+                AddExplorerItem(new FileExplorerObject()
                 {
                     Name = data[0],
                     Extension = data[1],
@@ -363,7 +331,7 @@
                 string[] data = Data.Substring(8).Split('|');
 
                 // Create the object and add it to the list
-                ExplorerItems.Add(new FileExplorerObject()
+                AddExplorerItem(new FileExplorerObject()
                 {
                     Name = data[0],
                     Type = ExplorerItemTypes.Folder,
@@ -375,59 +343,79 @@
 
             // If it was no request...
             else
-                // Show the data in the terminal
-                ClientLog.Add(new LogMessage()
+                lock (_TerminalLock)
                 {
-                    Content = Data,
-                    EventTime = DateTime.Now.ToString(),
-                    ShowTime = true,
-                    Type = Responses.Information
-                });
+                    // Show the data in the terminal
+                    Terminal.Add(new LogMessage()
+                    {
+                        Content = Data,
+                        EventTime = DateTime.Now.ToString(),
+                        ShowTime = true,
+                        Type = Responses.Information
+                    });
+                }
         }
 
+        #endregion
+
+        #region Overrided functions
+
         /// <summary>
-        /// Actions for the commands
+        /// Resoleves the executed command
         /// </summary>
+        protected override void ResolveCommand()
+        {
+            // Check if input commands
+
+            // :msg + [STRING] >> Send message to the server
+            if (CommandString.ToLower().StartsWith(":msg "))
+                Container.Get<ClientHandler>().Send("[PRINT]" + CommandString.Substring(5));
+
+            #region Commands without flags
+
+            else
+            {
+                switch (CommandString.ToLower())
+                {
+                    // :connect >> Connect to the server
+                    case "connect": Container.Get<ClientHandler>().Connect(); break;
+
+                    // :start >> Start the server
+                    case "cls": Terminal.Clear(); break;
+
+                    // :getdrives >> Query drive info from the bound client
+                    case "getdrives":
+                        // Prepare the explorer
+                        ExplorerItems.Clear();
+                        // Clear current path
+                        CurrentPathOnServerPC = String.Empty;
+                        // If the message was sent successfuly, clear the explorer to prepare it for the incoming data
+                        Container.Get<ClientHandler>().Send("[DRIVES]");
+                        break;
+
+                    // :help >> Provide help information
+                    case "help":
+                        foreach (string ch in File.ReadAllLines(Environment.CurrentDirectory + "\\Program Files\\Commands.txt"))
+                            Terminal.Add(new LogMessage()
+                            {
+                                Content = ch,
+                                ShowTime = false
+                            }); break;
+
+                    // Invalid command
+                    default:
+                        Terminal.Add(new LogMessage() { Content = $"'{CommandString}' is not recognized as a command, use ':h' for help", ShowTime = false });
+                        return;
+                }
+            }
+
+            #endregion
+
+        }
+
+        #endregion
+
         #region Command actions
-
-        /// <summary>
-        /// Fires when the Enter key has been pressed in the terminal
-        /// </summary>
-        private void ExecuteCommandEvent()
-        {
-            // Return is command is null or empty
-            if (String.IsNullOrEmpty(CommandString)) return;
-
-            // Don't hande the command resolve action here
-            ResolveCommand();
-            
-            // Add one slot for the executed command
-            Array.Resize(ref CommandHistory, CommandHistory.Length + 1);
-
-            // Add the executed command to the command history
-            CommandHistory[CommandHistory.Length - 1] = CommandString;
-
-            // Clear the Input line
-            CommandString = String.Empty;
-        }
-
-        /// <summary>
-        /// Is called when the up key is pressed
-        /// </summary>
-        private void PreviousCommandEvent()
-        {
-            // Return if there are no commands in the command history
-            if (CommandHistory.Length < 1) return;
-
-            // Reset the CommandIndex if it is at the end of the history
-            if (CurrentCommandIndex < 0) CurrentCommandIndex = CommandHistory.Length - 1;
-
-            // Set the current command to the previous one in the history
-            CommandString = CommandHistory[CurrentCommandIndex];
-
-            // Go back one step in the history
-            CurrentCommandIndex--;
-        }
 
         /// <summary>
         /// Is called when an item has been double clicked on in the explorer
@@ -460,7 +448,21 @@
             }
         }
 
-        #endregion
+        /// <summary>
+        /// Is called when the download button is clicked on a file
+        /// </summary>
+        /// <param name="o"></param>
+        private void DownloadEvent(object o)
+        {
+            // Get the clicked file
+            var Item = o as FileExplorerObject;
+
+            // Begin receiving the file from the server
+            Container.Get<ClientHandler>().ReceiveFile(Environment.GetFolderPath(Environment.SpecialFolder.Desktop));
+
+            // Send downloading request to the server
+            Container.Get<ClientHandler>().Send($"[DOWNLOAD]{CurrentPathOnServerPC}\\{Item.Name}");
+        }
 
         #endregion
 

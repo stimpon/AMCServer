@@ -1,6 +1,11 @@
-﻿namespace AMCClient2
+﻿/// <summary>
+/// Root namespace
+/// </summary>
+namespace AMCCore
 {
+    #region Requried namespaces
     using System.ComponentModel;
+    #endregion
 
     /// <summary>
     /// Base ViewModel for all other ViewModels

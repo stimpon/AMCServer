@@ -4,10 +4,7 @@
     /// Required namespaces
     /// </summary>
     #region Namespaces
-    using System;
-    using System.Collections.Generic;
-    using System.ComponentModel;
-    using System.Text;
+    using AMCCore;
     #endregion
 
     public class ApplicationViewModel : BaseViewModel

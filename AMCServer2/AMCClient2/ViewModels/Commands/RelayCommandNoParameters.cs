@@ -1,12 +1,8 @@
 ﻿namespace AMCClient2
 {
-    /// <summary>
-    /// Required namespaces
-    /// </summary>
-    #region Namespaces
+    // Required namespaces >>
     using System;
     using System.Windows.Input;
-    #endregion
 
     /// <summary>
     /// RelayCommand that does not contain any parameters
@@ -58,16 +54,16 @@
         /// </summary>
         /// <param name="parameter"></param>
         /// <returns></returns>
-        public bool CanExecute(object parameter) 
-            =>         
+        public bool CanExecute(object parameter) => 
+            
             Criteria.Invoke(parameter);
 
         /// <summary>
         /// Execute the command
         /// </summary>
         /// <param name="parameter"></param>
-        public void Execute(object parameter)
-            =>            
+        public void Execute(object parameter) =>
+            
             _Action.Invoke();
     }
 }

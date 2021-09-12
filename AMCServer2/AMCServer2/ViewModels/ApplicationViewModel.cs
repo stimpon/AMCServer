@@ -1,7 +1,13 @@
-﻿using AMCServer;
-
+﻿/// <summary>
+/// Root namespace
+/// </summary>
 namespace AMCServer2
 {
+    #region Required namespaces
+    using AMCServer;
+    using AMCCore;
+    #endregion
+
     /// <summary>
     /// The Application ViewModel
     /// </summary>

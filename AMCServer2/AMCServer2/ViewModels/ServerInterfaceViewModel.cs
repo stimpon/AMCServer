@@ -1,6 +1,9 @@
-﻿namespace AMCServer2
+﻿/// <summary>
+/// Root namespace
+/// </summary>
+namespace AMCServer2
 {
-    // Required namespaces
+    #region Required namespaces
     using System;
     using System.IO;
     using System.Linq;
@@ -10,12 +13,13 @@
     using NetworkModules.Core;
     using NetworkModules.Server;
     using AMCCore;
-    using System.Windows;
+    using System.Windows.Data;
+    #endregion
 
     /// <summary>
     /// ViewModel for the ServerView
     /// </summary>
-    public class ServerInterfaceViewModel : BaseViewModel
+    public class ServerInterfaceViewModel : BaseInterfaceViewModel
     {
         #region Public Properties
 
@@ -25,24 +29,11 @@
         public static ServerInterfaceViewModel VM { get; set; }
 
         /// <summary>
-        /// This is the serverlog that will be displayed in the server console
-        /// </summary>
-        public ThreadSafeObservableCollection<ILogMessage> ServerLog { get; set; }
-
-        /// <summary>
-        /// These are the items that will be displayed in the explorer
-        /// </summary>
-        public ThreadSafeObservableCollection<FileExplorerObject> ExplorerItems { get; set; }
-
-        /// <summary>
         /// The current path in the explorer
         /// </summary>
         public string CurrentPathOnClientPC { get; set; }
 
-        /// <summary>
-        /// The string that is linked to the command box
-        /// </summary>
-        public string CommandString { get; set; } = String.Empty;
+        #endregion
 
         #region Commands
 
@@ -66,114 +57,73 @@
         /// </summary>
         public ICommand PreviousCommand { get; set; }
 
+        /// <summary>
+        /// When to show the next command
+        /// </summary>
+        public ICommand NextCommand { get; set; }
+
         #endregion
 
-        #region Current download properties
+        #region Overrided properties  
+        
+        /// <summary>
+        /// The current position in the <see cref="F:AMCCore.BaseInterfaceViewModel.CommandHistory" />
+        /// </summary>
+        public override int CurrentCommandIndex { get; set; } = 0;
+        /// <summary>
+        /// The string that is linked to the command box
+        /// </summary>
+        public override string CommandString { get; set; } = string.Empty;
+
+        /// <summary>
+        /// These are the items that will be displayed in the explorer
+        /// </summary>
+        public override ThreadSafeObservableCollection<FileExplorerObject> ExplorerItems { get; set; }
+
+        /// <summary>
+        /// This is the serverlog that will be displayed in the server console
+        /// </summary>
+        public override ThreadSafeObservableCollection<ILogMessage> Terminal { get; set; }
 
         /// <summary>
         /// Name of the file
         /// </summary>
-        public string FileName { get; set; }
+        public override string FileName { get; set; }
         /// <summary>
         /// Size of the file
         /// </summary>
-        public decimal Size { get; set; } = 1;
+        public override decimal Size { get; set; }
         /// <summary>
         /// Downloaded bytes
         /// </summary>
-        public decimal ActualSize { get; set; } = 0;
+        public override decimal ActualSize { get; set; }
         /// <summary>
         /// String for the View
         /// </summary>
-        public string ProgresString { get; set; }
+        public override string ProgresString { get; set; }
 
         #endregion
 
-        #endregion
-
-        #region Private members
-
-        /// <summary>
-        /// The current position in the <see cref="CommandHistory"/>
-        /// </summary>
-        private int CurrentCommandIndex { get; set; } = 0;
-
-        /// <summary>
-        /// Array to save all executed commands
-        /// </summary>
-        private string[] CommandHistory;
-
-        #endregion
+        #region Default constructor
 
         /// <summary>
         /// Default constructor
         /// </summary>
-        public ServerInterfaceViewModel()
+        public ServerInterfaceViewModel() : base()
         {
             if (ProgramState.IsRunning)
                 // Call the Init method when a new instance of this VM is created
                 Initialize();
-
         }
 
-        #region Functions
+        #endregion
 
-        /// <summary>
-        /// Adds the file explorer item.
-        /// </summary>
-        /// <param name="item">The item.</param>
-        private void AddFileExplorerItem(FileExplorerObject item)
-        {
-            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-            {
-                // Add item to the control
-                ExplorerItems.Add(item);
-            }));
-        }
-
-        /// <summary>
-        /// First function that will be called when a new instance
-        /// of this ViewModel is created
-        /// </summary>
-        private void Initialize()
-        {
-            // Set the accessable ViewModel to this class
-            VM = this;
-
-            // Initialize a new command history
-            CommandHistory = new string[0];
-
-            // This is the standard message that shows when the program starts
-            ServerLog = new ThreadSafeObservableCollection<ILogMessage>() {
-                new LogMessage() { Content = "AMCServer [Version 1.0.0]", ShowTime = false, Type = Responses.Information } ,
-                new LogMessage() { Content = "(c) 2021 Stimpon",          ShowTime = false, Type = Responses.Information } ,
-            };
-            ExplorerItems = new ThreadSafeObservableCollection<FileExplorerObject>();
-
-            #region Create commands
-
-            // Command for exetuting commands
-            ExecuteCommand      = new RelayCommandNoParameters(ExecuteCommandEvent);
-            // Navigate command
-            ExplorerDoubleClick = new RelayCommand(NavigateEvent, (o) => { return true; });
-            // Download command
-            DownloadFileClick   = new RelayCommand(DownloadEvent);
-            // Previous command command
-            PreviousCommand = new RelayCommandNoParameters(PreviousCommandEvent);
-
-            #endregion
-
-            // Subscribe to server events
-            Container.GetSingleton<ServerHandler>().NewServerInformation += OnServerInformation;
-            Container.GetSingleton<ServerHandler>().NewDataReceived      += OnDataReceived;
-            Container.GetSingleton<ServerHandler>().DownloadInformation  += OnDownloadInformation;
-
-        }
+        #region Overrided functions
 
         /// <summary>
         /// Resoleves the executed command
         /// </summary>
-        private void ResolveCommand()
+        protected override void ResolveCommand()
         {
             #region Commands with flags
 
@@ -184,7 +134,7 @@
                 if (int.TryParse(CommandString.Substring(5), out int ID))
                     Container.GetSingleton<ServerHandler>().BindServer(ID);
                 else
-                    ServerLog.Add(new LogMessage() { Content  = $"'{CommandString[5..]}' is an invalid ID", 
+                    Terminal.Add(new LogMessage() { Content  = $"'{CommandString[5..]}' is an invalid ID", 
                                                   ShowTime = false, 
                                                   Type     = Responses.Error });
             }
@@ -214,17 +164,17 @@
                         Container.GetSingleton<ServerHandler>().Send($"New privileges was set for you by the server- { commandFlags[1].ToUpper() }", id);
 
                         // Display message
-                        ServerLog.Add(new LogMessage() { Content = $"New privileges was set for client {id}- { commandFlags[1].ToUpper() }", Type = Responses.OK });
+                        Terminal.Add(new LogMessage() { Content = $"New privileges was set for client {id}- { commandFlags[1].ToUpper() }", Type = Responses.OK });
                     }
                     // If privileges could not be set
                     else
                         // Display error message
-                        ServerLog.Add(new LogMessage() { Content = $"Client {id} was not found, or a bad privileges was provided", Type = Responses.Error });
+                        Terminal.Add(new LogMessage() { Content = $"Client {id} was not found, or a bad privileges was provided", Type = Responses.Error });
                 }
                 // Else if the command had invalid or to few flags...
                 else
                     // Display error message
-                    ServerLog.Add(new LogMessage() { Content = $"Invalid or to few command flags, check :help", Type = Responses.Information });
+                    Terminal.Add(new LogMessage() { Content = $"Invalid or to few command flags, check :help", Type = Responses.Information });
             }
             // start + parameters for what services to start
             else if (CommandString.ToLower().StartsWith("start"))
@@ -235,7 +185,7 @@
                 // If no flags was provided
                 if (flags.Count() == 0)
                 {
-                    ServerLog.Add(new LogMessage() { Content = "You must say which services to start", Type = Responses.Information });
+                    Terminal.Add(new LogMessage() { Content = "You must say which services to start", Type = Responses.Information });
                 }
                 // Else if any flags was provided...
                 else
@@ -278,7 +228,7 @@
                     // If no valid flags was provided
                     if (!validFlags)
                     {
-                        ServerLog.Add(new LogMessage() { Content = "Invalid parameters was provided, type 'help' for more information", Type = Responses.Information });
+                        Terminal.Add(new LogMessage() { Content = "Invalid parameters was provided, type 'help' for more information", Type = Responses.Information });
                     }
                 }
             }
@@ -313,7 +263,7 @@
                     // If no valid flags was provided
                     if (!validFlags)
                     {
-                        ServerLog.Add(new LogMessage() { Content = "Invalid parameters was provided, type 'help' for more information", Type = Responses.Information });
+                        Terminal.Add(new LogMessage() { Content = "Invalid parameters was provided, type 'help' for more information", Type = Responses.Information });
                     }
                 }
             }
@@ -327,7 +277,7 @@
                 switch (CommandString.ToLower())
                 {
                     // :cls >> Clear the console                   
-                    case "cls": ServerLog.Clear(); break;
+                    case "cls": Terminal.Clear(); break;
 
                     // :unbind >> unbind the server from the currently bound client
                     case "unbind": Container.GetSingleton<ServerHandler>().UnbindServer(); break;
@@ -347,7 +297,7 @@
                         // Read all lines from the help file
                         foreach (string ch in File.ReadAllLines(Environment.CurrentDirectory + "\\Program Files\\Commands.txt"))
                             // Display each line correctly in the terminal
-                            ServerLog.Add(new LogMessage()
+                            Terminal.Add(new LogMessage()
                             {
                                 Content = ch,
                                 ShowTime = false
@@ -355,12 +305,79 @@
 
                     // Invalid command
                     default:
-                        ServerLog.Add(new LogMessage() { Content = $"'{CommandString}' is not recognized as a command, use ':h' for help", ShowTime = false });
+                        Terminal.Add(new LogMessage() { Content = $"'{CommandString}' is not recognized as a command, use 'help' for help", ShowTime = false });
                         return;
                 }
             }
             #endregion
         }
+
+        #endregion
+
+        #region Private functions
+
+        // One-time functions to run when initializing ======================================================>
+
+        /// <summary>
+        /// Creates the commands for the interface.
+        /// </summary>
+        private void CreateCommands()
+        {
+            // Command for exetuting commands
+            ExecuteCommand = new RelayCommandNoParameters(ExecuteCommandEvent);
+            // Navigate command
+            ExplorerDoubleClick = new RelayCommand(NavigateEvent, (o) => { return true; });
+            // Download command
+            DownloadFileClick = new RelayCommand(DownloadEvent);
+            // Previous command command
+            PreviousCommand = new RelayCommandNoParameters(PreviousCommandEvent);
+            // Next command command
+            NextCommand = new RelayCommandNoParameters(NextCommandEvent);
+        }
+        /// <summary>
+        /// Subscribes to events.
+        /// </summary>
+        private void SubscribeToEvents()
+        {
+            // Subscribe to server events
+            Container.GetSingleton<ServerHandler>().NewServerInformation += OnServerInformation;
+            Container.GetSingleton<ServerHandler>().NewDataReceived += OnDataReceived;
+            Container.GetSingleton<ServerHandler>().DownloadInformation += OnDownloadInformation;
+        }
+        /// <summary>
+        /// Creates the binding operations.
+        /// </summary>
+        private void CreateBindingOperations()
+        {
+            BindingOperations.EnableCollectionSynchronization(Terminal, _TerminalLock);
+            BindingOperations.EnableCollectionSynchronization(ExplorerItems, _ExplorerLock);
+        }
+
+        // ==================================================================================================>
+
+        /// <summary>
+        /// First function that will be called when a new instance
+        /// of this ViewModel is created
+        /// </summary>
+        private void Initialize()
+        {
+            // Set the accessable ViewModel to this class
+            VM = this;
+
+            // This is the standard message that shows when the program starts
+            Terminal = new ThreadSafeObservableCollection<ILogMessage>() {
+                new LogMessage() { Content = "AMCServer [Version 1.0.0]", ShowTime = false, Type = Responses.Information } ,
+                new LogMessage() { Content = "(c) 2021 Stimpon",          ShowTime = false, Type = Responses.Information } ,
+            };
+
+            // Create binding operations
+            CreateBindingOperations();
+            // Subscribe to events
+            SubscribeToEvents();
+            // Create all commands
+            CreateCommands();
+        }
+
 
         /// <summary>
         /// When the <see cref="ServerHandler"/> raises a message
@@ -370,7 +387,7 @@
         private void OnServerInformation(object sender, InformationEventArgs e)
         {
             // Log the message
-            ServerLog.Add(new LogMessage()
+            Terminal.Add(new LogMessage()
             {
                 Content   = e.Information,
                 ShowTime  = (e.InformationTimeStamp != null) ? true : false,
@@ -390,7 +407,7 @@
             if (e.Data.StartsWith("[PRINT]"))
             {
                 // Add the message to the server log
-                ServerLog.Add(new LogMessage() { Content = $"{e.Client.ClientConnection.RemoteEndPoint.ToString()} said: {e.Data.Substring(7)}",
+                Terminal.Add(new LogMessage() { Content = $"{e.Client.ClientConnection.RemoteEndPoint.ToString()} said: {e.Data.Substring(7)}",
                                               EventTime = e.InformationTimeStamp,
                                               ShowTime = true,
                                               Type = Responses.Information });
@@ -404,7 +421,7 @@
                 // Split the received data
                 string[] data = e.Data.Substring(7).Split('|');
 
-                AddFileExplorerItem(new FileExplorerObject()
+                AddExplorerItem(new FileExplorerObject()
                 {
                     Name = $"{data[1]} ({data[0]})",
                     Path = data[0],
@@ -419,7 +436,7 @@
                 string[] data = e.Data.Substring(6).Split('|');
 
                 // Add item to the file explorer
-                AddFileExplorerItem(new FileExplorerObject()
+                AddExplorerItem(new FileExplorerObject()
                 {
                     Name = data[0],
                     Extension = data[1],
@@ -434,7 +451,7 @@
                 string[] data = e.Data.Substring(8).Split('|');
 
                 // Add the file explorer item
-                AddFileExplorerItem(new FileExplorerObject()
+                AddExplorerItem(new FileExplorerObject()
                 {
                     Name = data[0],
                     Type = ExplorerItemTypes.Folder,
@@ -444,66 +461,62 @@
 
             #endregion
 
-            #region When the client navigates this PC
+            #region Commands that requires the client to have special permissions
 
-            // Client must have atleast read permissions to navigate the server PC
-            else if (e.Client.ServerPermissions > 0)
+            // Create variable that can be checked at the end of the function to know if the command was allowed
+            bool isAllowed = true;
+
+            #region Commands that requres the client to hace READ permissions
+
+            // If the client wants drive info...
+            if (e.Data.StartsWith("[DRIVES]")) 
             {
-                // If the server wants drive info...
-                if (e.Data.StartsWith("[DRIVES]")) SendDrivesToClient(e.Client.ID);
-                // If the server wants to navigate...
-                else if (e.Data.StartsWith("[NAV]")) SendPathItems(e.Data.Substring(5), e.Client.ID);
+                // If the client is allowed to get drives info on the server's PC...
+                if (e.Client.ServerPermissions >= Permissions.R)
+                    // Send drive info to the client
+                    SendDrivesToClient(e.Client.ID);
+                // Else if the client is not allowed to get drive info from the server
+                else isAllowed = false;
+            }
+            // If the server wants to navigate...
+            else if (e.Data.StartsWith("[NAV]"))
+            {
+                // If the client is allowed to navigate the server's PC
+                if (e.Client.ServerPermissions >= Permissions.R)
+                    // Prefotm navigation command for the client
+                    SendPathItems(e.Data.Substring(5), e.Client.ID);
+                // Else if the client is not allowed to navigate the servers pc
+                else isAllowed = false;
             }
 
-            // Else if the client does not have the required permissions
-            else
-                Container.GetSingleton<ServerHandler>().Send($"Request was denied", e.Client.ID);
+            #endregion
+
+            #region Commands that requires the client to have READ and WRITE permissions
+
+            // If the client wants to download a file from the server
+            if (e.Data.StartsWith("[DOWNLOAD]"))
+            {
+                if (e.Client.ServerPermissions == Permissions.RW)
+                    // Send the file to the server
+                    SendFileRequest(e.Data.Substring(10), e.Client.ID);
+                // Else if the client is not allowed to download files from the server
+                else isAllowed = false;
+            }
+
+            #endregion
+
+            // If the trquested command was not allowed
+            if (!isAllowed)
+                // Send message to the client stating that the request was denied
+                Container.GetSingleton<ServerHandler>().Send("Request was denied", e.Client.ID);
+
 
             #endregion
         }
 
-        /// <summary>
-        /// When new information about a download is available
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void OnDownloadInformation(object sender, FileDownloadInformationEventArgs e)
-        {
-            FileName   = e.FileName;
-            Size       = e.FileSize;
-            ActualSize = e.ActualFileSize;
+        #endregion
 
-            string SizeString       = StringFormatingHelpers.BytesToSizeString(Size);
-            string ActualSizeString = StringFormatingHelpers.BytesToSizeString(ActualSize);
-
-            ProgresString = $"{ActualSizeString}/{SizeString}";
-        }
-
-        /// <summary>
-        /// Actions for the commands
-        /// </summary>
         #region Command actions
-
-        /// <summary>
-        /// Is called when the Enter key has been pressed in the terminal
-        /// </summary>
-        private void ExecuteCommandEvent()
-        {
-            // Return is command is null or empty
-            if (String.IsNullOrEmpty(CommandString)) return;
-
-            // Don't hande the command resolve action here
-            ResolveCommand();
-
-            // Add one slot to the command history
-            Array.Resize(ref CommandHistory, CommandHistory.Length + 1);
-
-            // Add the current command to the history after execution
-            CommandHistory[CommandHistory.Length - 1] = CommandString;
-
-            // Clear the Input line
-            CommandString = String.Empty;
-        }
 
         /// <summary>
         /// Is called when an item has been double clicked on in the explorer
@@ -551,25 +564,6 @@
             // Send downloading request
             Container.GetSingleton<ServerHandler>().Send($"[DOWNLOAD]{CurrentPathOnClientPC}\\{Item.Name}");
         }
-
-        /// <summary>
-        /// Is called when the up key is pressed
-        /// </summary>
-        private void PreviousCommandEvent()
-        {
-            // Return if there are no commands in the command history
-            if (CommandHistory.Length < 1) return;
-
-            // Reset the CommandIndex if it is at the end of the history
-            if (CurrentCommandIndex < 0) CurrentCommandIndex = CommandHistory.Length - 1;
-
-            // Set the current command to the previous one in the history
-            CommandString = CommandHistory[CurrentCommandIndex];
-
-            // Go back one step in the history
-            CurrentCommandIndex--;
-        }
-
 
         /// <summary>
         /// Send all servers to the servers
@@ -634,7 +628,36 @@
             }
         }
 
-        #endregion
+        /// <summary>
+        /// Server want a file
+        /// </summary>
+        /// <param name="FilePath"></param>
+        private void SendFileRequest(string FilePath, int clientID)
+        {
+            // If the file does not exist...
+            if (!File.Exists(FilePath))
+            {
+                // Send info to client stating that the file does not exist
+                Container.GetSingleton<ServerHandler>().Send("Requested file does not exist", clientID);
+                // Exit
+                return;
+            }
+
+            // If the file transfer socket is not online
+            if (Container.GetSingleton<ServerHandler>().FileTransferState != ServerStates.Online)
+            {
+                // Send info to client stating that files can not be downloaded at the moment
+                Container.GetSingleton<ServerHandler>().Send("Files can not be downloaded at the moment, FTP socket if offline", clientID);
+                // Exit
+                return;
+            }
+
+            // Get info about the file to send to the client
+            FileInfo req_file = new FileInfo(FilePath);
+
+            // Begin send the file to the client
+            Container.GetSingleton<ServerHandler>().BeginSendFile(FilePath, clientID);
+        }
 
         #endregion
 
