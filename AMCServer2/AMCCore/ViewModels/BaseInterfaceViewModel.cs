@@ -96,7 +96,6 @@ namespace AMCCore
             ActualSize = 0;
             CommandHistory = new string[0];
             ExplorerItems = new ThreadSafeObservableCollection<FileExplorerObject>();
-
         }
 
         #endregion

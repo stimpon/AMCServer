@@ -238,6 +238,7 @@
 
             // Close all sockets
             ServerSocket.Close();
+            FileTransferSocket.Close();
 
             // Set the serverstate to offline
             ServerState = ServerStates.Offline;
@@ -428,7 +429,7 @@
 
                 // Begin accepting
                 FileTransferSocket.BeginAccept(new AsyncCallback(FileTransferAcceptCallback),
-                    new FTar() { Client = client, Action = FileModes.Download });
+                    new FTSocketConnectARServer() { Client = client, Mode = FileModes.Download });
             }
             // Else if an invalid client ID was specified
             else
@@ -457,10 +458,10 @@
             {
                 // Let that connection connect to the file-transfer socket
                 FileTransferSocket.BeginAccept(new AsyncCallback(FileTransferAcceptCallback),
-                    new FTar()
+                    new FTSocketConnectARServer()
                     {
                         Client = client,
-                        Action = FileModes.Send,
+                        Mode = FileModes.Send,
                         OptionalParameters = filePath
                     });
             }
@@ -790,9 +791,7 @@
 
         #endregion
 
-        #region FileTransferSocket
-
-        #region File-download callbacks
+        #region FT socket
 
         /// <summary>
         /// Callback for when a client connects to the downloading socket
@@ -809,11 +808,11 @@
             try
             {
                 // Get the ar
-                var ftar = (FTar)ar.AsyncState;
+                var ftar = (FTSocketConnectARServer)ar.AsyncState;
 
                 // Extract properties from the ar
                 client = ftar.Client;
-                mode = ftar.Action;
+                mode = ftar.Mode;
 
                 // Set the file transfer socket
                 client.FTSocket = FileTransferSocket.EndAccept(ar);
@@ -897,14 +896,14 @@
                                              FileSize)
                     { Sender = client });
             }
-            // If the server is gonna send a file to this client
+            // If the server is gonna send a file to a client
             else if (mode == FileModes.Send)
             {
                 // Create encryptor
                 var FileEncryptor = Cryptography.CreateAesEncryptor();
 
                 // Extract file from ar
-                string file = ((FTar)ar.AsyncState).OptionalParameters as string;
+                string file = ((FTSocketConnectARServer)ar.AsyncState).OptionalParameters as string;
 
                 // Todo: Check if the file is accessable
                 try
@@ -938,7 +937,7 @@
                 client.FTSocket.Send(client.Encryptor.Encrypt(Encoding.Default.GetBytes((new FileInfo(file).Length.ToString())), true));
 
                 // Send the file
-                SendFile(((FTar)ar.AsyncState).OptionalParameters as string, client, FileEncryptor);
+                SendFile(((FTSocketConnectARServer)ar.AsyncState).OptionalParameters as string, client, FileEncryptor);
 
             }
 
@@ -1046,12 +1045,6 @@
 
             }
         }
-
-        #endregion
-
-        #region Send-file callbacks
-
-        #endregion
 
         #endregion
     }

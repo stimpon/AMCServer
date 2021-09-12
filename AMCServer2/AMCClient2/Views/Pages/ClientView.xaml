@@ -175,7 +175,7 @@
                 </StackPanel>
 
                 <!--Terminal-->
-                <ListView x:Name="ClientTerminal" Grid.Row="2" ItemsSource="{Binding ClientLog}" BorderThickness="0" Background="Black"
+                <ListView x:Name="ClientTerminal" Grid.Row="2" ItemsSource="{Binding Terminal}" BorderThickness="0" Background="Black"
                           Margin="0,0,0,25" IsTabStop="False">
 
                     <ListView.ItemContainerStyle>

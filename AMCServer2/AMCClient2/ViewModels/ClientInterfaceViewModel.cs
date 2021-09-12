@@ -115,7 +115,7 @@ namespace AMCClient2
 
         #region private functions
 
-        // One-time functions to run when initializing======================================================>
+        // One-time functions to run when initializing ======================================================>
 
         /// <summary>
         /// Creates the commands for the interface.
@@ -150,7 +150,7 @@ namespace AMCClient2
             BindingOperations.EnableCollectionSynchronization(ExplorerItems, _ExplorerLock);
         }
 
-        // ===============================================================>
+        // ==================================================================================================>
 
         /// <summary>
         /// First function that will be called when a new instance

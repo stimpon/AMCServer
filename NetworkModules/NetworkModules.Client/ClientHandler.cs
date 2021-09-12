@@ -276,15 +276,19 @@
             FileTransferSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
             // Connect to the server's file transfer socket
-            FileTransferSocket.BeginConnect(FileTransferEndpoint, 
+            FileTransferSocket.BeginConnect(FileTransferEndpoint,
                                                     new AsyncCallback(FileTransferSocketConnectCallback),
-                                                    FilePath);
+                                                    new FTSocketConnectARClient()
+                                                    {
+                                                        Mode = FileModes.Send,
+                                                        FileName = FilePath
+                                                    });
         }
 
         /// <summary>
         /// This function needs to be called before the client can receive a file from the server
         /// </summary>
-        /// <param name="path">Path to where to the downloaded file</param>
+        /// <param name="path">Downloading directory</param>
         public void ReceiveFile(string path)
         {
             // If the file-transfer socket is not online...
@@ -303,7 +307,10 @@
             // Connect to the server's file transfer socket
             FileTransferSocket.BeginConnect(FileTransferEndpoint,
                                                     new AsyncCallback(FileTransferSocketConnectCallback),
-                                                    FileModes.Download);
+                                                    new FTSocketConnectARClient() 
+                                                    { 
+                                                        Mode = FileModes.Download
+                                                    });
         }
 
         #endregion
@@ -607,10 +614,10 @@
                 FileTransferSocket.EndConnect(ar);
 
                 // Get filemode
-                FileModes mode = (FileModes)ar.AsyncState;
+                FTSocketConnectARClient FTar = (FTSocketConnectARClient)ar.AsyncState;
 
                 // If the file should be sent to the server
-                if(mode == FileModes.Send)
+                if(FTar.Mode == FileModes.Send)
                 {
                     // Try to sens the file
                     try
@@ -622,7 +629,7 @@
                         try
                         {
                             // Try opening the file and then close it
-                            using (FileStream fs = new FileStream((string)ar.AsyncState, FileMode.Open, FileAccess.Read, FileShare.None)) { fs.Close(); }
+                            using (FileStream fs = new FileStream(FTar.FileName, FileMode.Open, FileAccess.Read, FileShare.None)) { fs.Close(); }
                         }
                         // If not...
                         catch
@@ -631,7 +638,7 @@
                             FileTransferSocket.Close();
 
                             // Send information to the client
-                            OnClientInformation(Messages.GetMessage(201, (string)ar.AsyncState), Responses.Information);
+                            OnClientInformation(Messages.GetMessage(201, FTar.FileName), Responses.Information);
 
                             // Return
                             return;
@@ -644,13 +651,17 @@
                         FileTransferSocket.Send(Encryptor.Encrypt(FileEncryptor.IV, true));
 
                         // Send filename
-                        FileTransferSocket.Send(Encryptor.Encrypt(Encoding.Default.GetBytes((new FileInfo((string)ar.AsyncState)).Name), true));
+                        FileTransferSocket.Send(
+                            Encryptor.Encrypt(Encoding.Default.GetBytes(new FileInfo(FTar.FileName).Name), 
+                            true));
 
                         // Send filesize
-                        FileTransferSocket.Send(Encryptor.Encrypt(Encoding.Default.GetBytes((new FileInfo((string)ar.AsyncState).Length.ToString())), true));
+                        FileTransferSocket.Send(
+                            Encryptor.Encrypt(Encoding.Default.GetBytes((new FileInfo(FTar.FileName)).Length.ToString()), 
+                            true));
 
                         // Send the file
-                        SendFile((string)ar.AsyncState);
+                        SendFile(FTar.FileName);
                     }
                     // If the server rejected the file
                     catch (Exception ex)
@@ -660,7 +671,7 @@
                     }
                 }
                 // Else if the file should be downloaded
-                else if (mode == FileModes.Download)
+                else if (FTar.Mode == FileModes.Download)
                 {
                     #region Declare variables
 
@@ -712,14 +723,14 @@
                         new AsyncCallback(DownloadSocketReceiveCallback),
                         // Create a new FileHandler and pass it to the callback function
                         new FileDecryptor(FileDecryptor,
-                                                 FileName,
-                                                 DownloadingDirectory,
-                                                 FileSize));
+                                          FileName,
+                                          DownloadingDirectory,
+                                          FileSize));
                 }
             }
 
             // Server rejected the file transfer
-            catch(Exception ex) { }
+            catch { }
         }
 
         /// <summary>
