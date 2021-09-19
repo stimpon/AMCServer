@@ -1,6 +1,9 @@
-﻿namespace NetworkModules.Server
+﻿/// <summary>
+/// Root namespace
+/// </summary>
+namespace NetworkModules.Server
 {
-    // Required namespaces
+    #region Required namespaces
     using System;
     using System.Net;
     using System.Net.Sockets;
@@ -10,6 +13,7 @@
     using System.IO;
     using NetworkModules.Core;
     using System.ComponentModel;
+    #endregion
 
     /// <summary>
     /// Crypto server backend that handles AMCClients
@@ -107,7 +111,7 @@
         /// <summary>
         /// Message handler
         /// </summary>
-        private Messages Messages;
+        private ServerMessage Messages;
 
         #endregion
 
@@ -127,12 +131,6 @@
         public EventHandler<ClientInformationEventArgs> 
             NewDataReceived;
 
-        /// <summary>
-        /// Carries information about a specific download
-        /// </summary>
-        public EventHandler<FileDownloadInformationEventArgs> 
-            DownloadInformation;
-
         #endregion
 
         /// <summary>
@@ -143,6 +141,7 @@
         /// <param name="buffer_size">The server buffer size</param>
         public ServerHandler(int port, int ftpPort, int backlog, int buffer_size) 
         {
+            #region Set values from parameters
             // Set the listening port
             ListeningPort = port;
             // Set the file transfer port
@@ -150,7 +149,10 @@
             // Set the server backlog
             ServerBacklog = backlog;
             // Set the server buffer size
-            BufferSize    = buffer_size;
+            BufferSize = buffer_size;
+            // Set bound client to none
+            BoundClient = -1;
+            #endregion
 
             // Run the initialize function
             Initialize(); 
@@ -168,7 +170,7 @@
             if (ServerState != ServerStates.Offline)
             {
                 // Call the information event
-                OnServerInformation(Messages.GetWarning(200), Responses.Warning);
+                OnServerInformation(ServerMessage.Get(23), Responses.Warning);
 
                 // Cancel the server setup
                 return;
@@ -178,7 +180,6 @@
             ServerState       = ServerStates.StartingUp;
 
             #region Server socket setup
-
 
             try
             {
@@ -195,12 +196,12 @@
                 ServerSocket.BeginAccept(new AsyncCallback(ServerAcceptCallback), null);
 
                 // Call the information event
-                OnServerInformation(Messages.GetMessage(101), Responses.OK);
+                OnServerInformation(ServerMessage.Get(10), Responses.OK);
             }
             catch (SocketException se)
             {
-                // Send error event
-                OnServerInformation(Messages.GetErrorMessage($"{se.ErrorCode}A"), Responses.Error);
+                // Grab socket error and raise server information event
+                OnServerInformation(SocketExceptionMessage.Get(se.ErrorCode), Responses.Error);
                 // Set server state
                 ServerState = ServerStates.Offline;
 
@@ -224,10 +225,13 @@
             // Check if server is running
             if(ServerState == ServerStates.Offline)
             {
-                OnServerInformation(Messages.GetWarning("201"), Responses.Warning);
+                OnServerInformation(ServerMessage.Get(24), Responses.Warning);
                 // Do nothing
                 return;
             }
+
+            // Unbind from the bound client (If server is bound)
+            UnbindServer();
 
             // Loop throug all connections to the server
             for (int i = 0; i < ActiveConnections.Count(); i++)
@@ -247,7 +251,7 @@
             FileTransferState = ServerStates.Offline;
 
             // Call the information event
-            OnServerInformation(Messages.GetMessage(102), Responses.OK);
+            OnServerInformation(ServerMessage.Get(11), Responses.OK);
         }
 
         /// <summary>
@@ -294,13 +298,13 @@
                     // Set the bound client to the new client
                     BoundClient = ActiveConnections[i].ID;
                     // Send information that the client with the specified id was found
-                    OnServerInformation(Messages.GetMessage(105, ClientID), Responses.OK);
+                    OnServerInformation(ServerMessage.Get(14, ClientID), Responses.OK);
                     // Break out of the loop when the client was found
                     return;
                 }
 
             // Send information that no client with the specified id was found
-            OnServerInformation(Messages.GetErrorMessage(500, ClientID), Responses.Error, false);
+            OnServerInformation(ServerMessage.Get(5, ClientID), Responses.Error, false);
         }
 
         /// <summary>
@@ -313,7 +317,7 @@
                 return;
 
             // Call the event
-            OnServerInformation(Messages.GetMessage(103, BoundClient), Responses.OK);
+            OnServerInformation(ServerMessage.Get(12, BoundClient), Responses.OK);
             // Unbind from the bound client
             BoundClient = -1;
         }
@@ -355,7 +359,7 @@
             // Check if server is bound to a client
             if (BoundClient == -1 && id == -1)
             {
-                OnServerInformation(Messages.GetErrorMessage(501), Responses.Error, false);
+                OnServerInformation(ServerMessage.Get(7), Responses.Error, false);
                 return false; ;
             }
 
@@ -409,7 +413,7 @@
             if (FileTransferState != ServerStates.Online)
             {
                 // Raise information event
-                OnServerInformation(Messages.GetMessage(107), Responses.Information);
+                OnServerInformation(ServerMessage.Get(17), Responses.Information);
 
                 // Return since we can't receive any files at the moment
                 return;
@@ -429,12 +433,12 @@
 
                 // Begin accepting
                 FileTransferSocket.BeginAccept(new AsyncCallback(FileTransferAcceptCallback),
-                    new FTSocketConnectARServer() { Client = client, Mode = FileModes.Download });
+                    new FileTransferAr() { Client = client, Mode = FileModes.Download });
             }
             // Else if an invalid client ID was specified
             else
                 // Raise error message
-                OnServerInformation(Messages.GetErrorMessage(502, clientID), Responses.Error);
+                OnServerInformation(ServerMessage.Get(31, clientID), Responses.Error);
         }
 
         /// <summary>
@@ -458,12 +462,38 @@
             {
                 // Let that connection connect to the file-transfer socket
                 FileTransferSocket.BeginAccept(new AsyncCallback(FileTransferAcceptCallback),
-                    new FTSocketConnectARServer()
+                    new FileTransferAr()
                     {
                         Client = client,
                         Mode = FileModes.Send,
                         OptionalParameters = filePath
                     });
+            }
+        }
+
+        /// <summary>
+        /// Disconnect a connected client
+        /// </summary>
+        /// <param name="clientID"></param>
+        public void DisconnectClient(int clientID)
+        {
+            // Get the client from the active connections
+            var client = ActiveConnections.FirstOrDefault(c => c.ID.Equals(clientID));
+
+            // If the client does not exists
+            if(client == null)
+            {
+                OnServerInformation(ServerMessage.Get(34, clientID), Responses.Warning);
+            }
+            // Else if the client exists
+            else
+            {
+                OnServerInformation(ServerMessage.Get(35, clientID), Responses.Information);
+
+                // Close the connection for this client
+                client.ClientConnection.Close();
+                // Remove the client from the connections list
+                ActiveConnections.Remove(client);
             }
         }
 
@@ -479,8 +509,11 @@
             // Reset the ID counter
             IDs = 0;
 
+            // Reset the bound client id
+            BoundClient = -1;
+
             // Create the message handler
-            this.Messages = new Messages();
+            Messages = new ServerMessage();
 
             // Create empty connections list
             ActiveConnections = new ThreadSafeObservableCollection<ConnectionViewModel>();
@@ -496,7 +529,7 @@
         /// </summary>
         /// <param name="FilePath"></param>
         /// <param name="PacketSize"></param>
-        private void SendFile(string FilePath, ConnectionViewModel client, AesCryptoServiceProvider FileEncryptor)
+        private void SendFile(string FilePath, Socket client, AesCryptoServiceProvider FileEncryptor)
         {
             // Create encryptor
             ICryptoTransform Crypto = FileEncryptor.CreateEncryptor();
@@ -518,8 +551,8 @@
                     // Encrypt the block
                     var Encrypyted = Crypto.TransformFinalBlock(Block, 0, Block.Length);
 
-                    // Send the block to the server
-                    client.FTSocket.Send(Encrypyted);
+                    // Send the block to the client
+                    client.Send(Encrypyted);
                 }
             }
 
@@ -527,8 +560,8 @@
             Array.Clear(FileEncryptor.Key, 0, FileEncryptor.Key.Length);
             Array.Clear(FileEncryptor.IV, 0, FileEncryptor.IV.Length);
 
-            // Send message stating that the file was sent to the server successfuly
-            OnServerInformation(Messages.GetMessage(111, new FileInfo(FilePath).Name, client.ID), Responses.OK);
+            // Send message stating that the file was sent to the client successfuly
+            OnServerInformation(ServerMessage.Get(21, new FileInfo(FilePath).Name, client.RemoteEndPoint.ToString()), Responses.OK);
         }
 
         #endregion
@@ -539,13 +572,13 @@
         /// Event callback
         /// </summary>
         /// <param name="Data"></param>
-        protected virtual void OnServerInformation(string Information, Responses type, bool AddTimeStamp = true)
+        protected virtual void OnServerInformation(IMessage message, Responses type, bool AddTimeStamp = true)
         {
             // Check so the event is not null
             if (NewServerInformation != null)
-                NewServerInformation(this, new InformationEventArgs() { Information = Information , 
-                                                                     MessageType = type, 
-                                                                     InformationTimeStamp = (AddTimeStamp) ? DateTime.Now.ToString(): null });
+                NewServerInformation(this, new InformationEventArgs() { Message     = message,  
+                                                                        MessageType = type, 
+                                                                        InformationTimeStamp = (AddTimeStamp) ? DateTime.Now.ToString(): null });
         }
 
         /// <summary>
@@ -556,17 +589,6 @@
         {
             // Fire the event
             NewDataReceived(this, new ClientInformationEventArgs() { Client = Client, Data = Data, InformationTimeStamp = DateTime.Now.ToString() });
-        }
-
-        /// <summary>
-        /// Event callback
-        /// </summary>
-        /// <param name="FileName"></param>
-        /// <param name="FileSize"></param>
-        /// <param name="ActualSize"></param>
-        protected virtual void OnDownloadInformation(string FileName, long FileSize, long ActualSize)
-        {
-            DownloadInformation?.Invoke(this, new FileDownloadInformationEventArgs() { FileName = FileName, FileSize = FileSize, ActualFileSize = ActualSize });
         }
 
         #endregion
@@ -595,7 +617,8 @@
                         CurrentDataSize       = 0,
                         DataBuffer            = new byte[BufferSize],
                         CurrentDataSignature  = new byte[0],
-                        ServerPermissions     = ClientDefaultData.DEFAULT_ClientPermissions
+                        ServerPermissions     = ClientDefaultData.DEFAULT_ClientPermissions,
+                        Downloads             = new System.Collections.Generic.List<DownloadHandler>()
                     };
 
                     // Create placeholder for the clients public key
@@ -629,13 +652,13 @@
                     ActiveConnections.Add(ClientConnection);
 
                     // Raise information event
-                    OnServerInformation(Messages.GetMessage(100, s.RemoteEndPoint.ToString()), Responses.Information);
+                    OnServerInformation(ServerMessage.Get(9, s.RemoteEndPoint.ToString()), Responses.Information);
                 }
                 // If client failed to be verified
                 catch (InvalidHandshakeException ex)
                 {
                     // Raise information event
-                    OnServerInformation(Messages.GetWarning("10001A", ex.Message), Responses.Warning);
+                    OnServerInformation(ServerMessage.Get(1, s.RemoteEndPoint.ToString()), Responses.Warning);
                     // Close the connection
                     s.Close();
                 }
@@ -643,7 +666,7 @@
                 catch (Exception ex)
                 {
                     // Raise information event
-                    OnServerInformation(Messages.GetWarning("10001B", s.RemoteEndPoint, ex.Message), Responses.Warning);
+                    OnServerInformation(ServerMessage.Get(2, s.RemoteEndPoint.ToString(), ex.Message), Responses.Warning);
                     // Close the socket if there were any problems
                     s.Close();
                 }
@@ -668,10 +691,13 @@
         /// <param name="ar"></param>
         private void ServerReceiveCallback(IAsyncResult ar)
         {
+            // Declare placeholder for the client that sent the data
+            ConnectionViewModel _client = null;
+
             try
             {
                 // Get the conenction object from the list of active connections
-                var _client = ActiveConnections.FirstOrDefault(c => c.ClientConnection.Equals((Socket)ar.AsyncState));
+                _client = ActiveConnections.FirstOrDefault(c => c.ClientConnection.Equals((Socket)ar.AsyncState));
 
                 // If server is shuting down
                 if (_client.ClientConnection.Connected == false) 
@@ -761,7 +787,7 @@
                                 else
                                 {
                                     // Send a warning
-                                    OnServerInformation(Messages.GetWarning(300, _client.ClientConnectionString, _client.CurrentDataString), 
+                                    OnServerInformation(ServerMessage.Get(27, _client.ClientConnectionString, _client.CurrentDataString), 
                                         Responses.Warning);
                                 }
 
@@ -781,11 +807,31 @@
                                                            new AsyncCallback(ServerReceiveCallback),
                                                            _client.ClientConnection);
             }
-            // If errors occurred while receiving data from a client
+            // Will most likely occurr if a client disconnected
+            catch(SocketException sx)
+            {
+                // Get the error message (Should never return null)
+                var error = SocketExceptionMessage.Get(sx.ErrorCode);
+                // Raise server information with the error message
+                OnServerInformation(error, Responses.Error);
+
+                // If client disconnected or closed connection, then we should still have been abled to grap the client
+                if(_client != null)
+                {
+                    // Disconnect the client
+                    DisconnectClient(_client.ID);
+                }
+                // Else, client could not be resolved
+                else
+                {
+
+                }
+            }
+            // Unknown error
             catch (Exception ex)
             {
                 // Send information stating the occurred error
-                OnServerInformation(ex.Message, Responses.Error);
+                OnServerInformation(ServerMessage.Get(33, ex.Message), Responses.Error);
             }
         }
 
@@ -803,30 +849,31 @@
             ConnectionViewModel client = null;
             // The action to preform
             FileModes mode = FileModes.None;
+            // Create null socket
+            Socket socket = null;
+            // Create the ft ar object
+            FileTransferAr ftar = null;
 
             // Only resolve ar and continue if the connection came from a valid client
             try
             {
                 // Get the ar
-                var ftar = (FTSocketConnectARServer)ar.AsyncState;
+                ftar = (FileTransferAr)ar.AsyncState;
 
                 // Extract properties from the ar
                 client = ftar.Client;
-                mode = ftar.Mode;
+                mode   = ftar.Mode;
 
-                // Set the file transfer socket
-                client.FTSocket = FileTransferSocket.EndAccept(ar);
-                // Create the buffer for the client
-                client.DownloadBuffer = new byte[BufferSize];
-                // Create the download byte queue for the client
-                client.DownloadByteQueue = new System.Collections.Generic.List<byte>();
+                // Get the socket connection
+                socket = FileTransferSocket.EndAccept(ar);
+
             }
             catch
             {
                 // This will only happen if the connection was established from an unknow source
 
                 // Send information stating that an unknown connection tried to connect
-                OnServerInformation(Messages.GetWarning(301), Responses.Warning);
+                OnServerInformation(ServerMessage.Get(30, socket.RemoteEndPoint.ToString()), Responses.Warning);
 
                 // Exit
                 return;
@@ -835,16 +882,12 @@
             // If we are gonna receive a file from this client
             if(mode == FileModes.Download)
             {
-                #region Declare variables
-
-                // Create the file decryptor
+                // Create the file decryptor for the download
                 AesCryptoServiceProvider FileDecryptor = null;
                 // Declare filename
                 string FileName = String.Empty;
                 // Declare filesize
-                long FileSize = -1; 
-
-                #endregion
+                long FileSize = -1;
 
                 try
                 {
@@ -861,19 +904,19 @@
                     FileDecryptor = Cryptography.CreateAesEncryptor(false, false);
 
                     // Receive 128 bin AES key
-                    client.FTSocket.Receive(Data);
+                    socket.Receive(Data);
                     FileDecryptor.Key = client.Decryptor.Decrypt(Data, true);
 
                     // Receive IV
-                    client.FTSocket.Receive(Data);
+                    socket.Receive(Data);
                     FileDecryptor.IV = client.Decryptor.Decrypt(Data, true);
 
                     // Receive filename
-                    client.FTSocket.Receive(Data);
+                    socket.Receive(Data);
                     FileName = Encoding.Default.GetString(client.Decryptor.Decrypt(Data, true));
 
                     // Receive filesize
-                    client.FTSocket.Receive(Data);
+                    socket.Receive(Data);
                     FileSize = long.Parse(Encoding.Default.GetString(client.Decryptor.Decrypt(Data, true)));
                 }
 
@@ -881,29 +924,43 @@
                 catch(Exception ex)
                 { 
                     // Close the connection
-                    client.FTSocket.Close(); 
+                    socket.Close(); 
                     // Send error message stating what happened
-                    OnServerInformation(ex.Message, Responses.Error);
+                    OnServerInformation(ServerMessage.Get(32, ftar.FileName, ex.Message), Responses.Error);
                 }
 
+                // Create the download handler
+                DownloadHandler handler = new DownloadHandler
+                    (
+                        FileDecryptor,
+                        FileName,
+                        DownloadingDirectory,
+                        FileSize,
+                        socket,
+                        // We want to pass the client view model as optional parameter
+                        client
+                    );
+
+                // Add the handler to the client downloads
+                client.Downloads.Add(handler);
+
+                // Raise server information event with info about the download
+                OnServerInformation(ServerMessage.Get(22, client.ID, FileName, handler.DownloadID), Responses.Information);
+
                 // Begin receiving file from the client
-                client.FTSocket.BeginReceive(client.DownloadBuffer, 0, client.DownloadBuffer.Length, SocketFlags.None,
+                socket.BeginReceive(handler.DownloadBuffer, 0, handler.DownloadBuffer.Length, SocketFlags.None,
                     new AsyncCallback(DownloadSocketReceiveCallback),
                     // Create a new FileHandler and pass it to the callback function
-                    new FileDecryptorHandler(FileDecryptor,
-                                             FileName,
-                                             DownloadingDirectory,
-                                             FileSize)
-                    { Sender = client });
+                    handler);
             }
             // If the server is gonna send a file to a client
-            else if (mode == FileModes.Send)
+            if (mode == FileModes.Send)
             {
                 // Create encryptor
                 var FileEncryptor = Cryptography.CreateAesEncryptor();
 
                 // Extract file from ar
-                string file = ((FTSocketConnectARServer)ar.AsyncState).OptionalParameters as string;
+                string file = ((FileTransferAr)ar.AsyncState).OptionalParameters as string;
 
                 // Todo: Check if the file is accessable
                 try
@@ -915,29 +972,29 @@
                 catch
                 {
                     // Close the socket
-                    client.FTSocket.Close();
+                    socket.Close();
 
-                    // Send information that a file that is being used by another provess if trying to be downloaded by a client
-                    OnServerInformation(Messages.GetMessage(110, client.ID, file), Responses.Information);
+                    // Send information that a file that is being used by another process if trying to be downloaded by a client
+                    OnServerInformation(ServerMessage.Get(20, client.ID, file), Responses.Information);
 
                     // Exit
                     return;
                 }
 
                 // Send randomly generated 128 bit AES key
-                client.FTSocket.Send(client.Encryptor.Encrypt(FileEncryptor.Key, true));
+                socket.Send(client.Encryptor.Encrypt(FileEncryptor.Key, true));
 
                 // Send randomly generated IV
-                client.FTSocket.Send(client.Encryptor.Encrypt(FileEncryptor.IV, true));
+                socket.Send(client.Encryptor.Encrypt(FileEncryptor.IV, true));
 
                 // Send filename
-                client.FTSocket.Send(client.Encryptor.Encrypt(Encoding.Default.GetBytes(new FileInfo(file).Name), true));
+                socket.Send(client.Encryptor.Encrypt(Encoding.Default.GetBytes(new FileInfo(file).Name), true));
 
                 // Send filesize
-                client.FTSocket.Send(client.Encryptor.Encrypt(Encoding.Default.GetBytes((new FileInfo(file).Length.ToString())), true));
+                socket.Send(client.Encryptor.Encrypt(Encoding.Default.GetBytes((new FileInfo(file).Length.ToString())), true));
 
                 // Send the file
-                SendFile(((FTSocketConnectARServer)ar.AsyncState).OptionalParameters as string, client, FileEncryptor);
+                SendFile(((FileTransferAr)ar.AsyncState).OptionalParameters as string, socket, FileEncryptor);
 
             }
 
@@ -951,38 +1008,38 @@
         private void DownloadSocketReceiveCallback(IAsyncResult ar)
         {
             // Filehandler from the callback
-            FileDecryptorHandler FileHandler = ar.AsyncState as FileDecryptorHandler;
+            DownloadHandler handler = ar.AsyncState as DownloadHandler;
 
             // Get the amount of bytes received
-            int Rec = FileHandler.Sender.FTSocket.EndReceive(ar);
+            int Rec = handler.DownloadSocket.EndReceive(ar);
 
             // Check if any bytes where sent
             if (Rec > 0)
             {
                 // Create new array from the received bytes
-                byte[] ReceivedBytes = FileHandler.Sender.DownloadBuffer;
+                byte[] ReceivedBytes = handler.DownloadBuffer;
                 // Resize to the correct length
                 Array.Resize(ref ReceivedBytes, Rec);
 
                 // Add the bytes recieved from the client to the byte queue for processing
-                FileHandler.Sender.DownloadByteQueue.AddRange(ReceivedBytes);
+                handler.DownloadByteQueue.AddRange(ReceivedBytes);
 
                 // Check that we have gotten a complete byte block
-                while(FileHandler.Sender.DownloadByteQueue.Count() >= 528 ||
-                   FileHandler.FileSize - FileHandler.ActualSize < 528)
+                while(handler.DownloadByteQueue.Count() >= 528 ||
+                   handler.FileSize - handler.ActualSize < 528)
                 {
                     // Create an array that will hold a complete byte packet
                     byte[] currentEncryptedBlock = new byte[0];
 
                     // If the current packet is not the last byte packet
-                    if (FileHandler.Sender.DownloadByteQueue.Count() >= 528)
+                    if (handler.DownloadByteQueue.Count() >= 528)
                         // Get the first 32 bytes from the queue
-                        currentEncryptedBlock = FileHandler.Sender.DownloadByteQueue
+                        currentEncryptedBlock = handler.DownloadByteQueue
                             .GetRange(0, 528).ToArray();
                     // Else if this is the last byte packet
                     else
                         // Get the rest of the bytes in the queue
-                        currentEncryptedBlock = FileHandler.Sender.DownloadByteQueue.ToArray();
+                        currentEncryptedBlock = handler.DownloadByteQueue.ToArray();
 
                     // Move the byte array into a memory stream
                     using (MemoryStream mem = new MemoryStream(currentEncryptedBlock))
@@ -1003,45 +1060,51 @@
                             try
                             {
                                 // Move the block into the decryption handler
-                                fileDownloaded = FileHandler.WriteBytes(EncryptedBlock);
+                                fileDownloaded = handler.WriteBytes(EncryptedBlock);
 
                                 // Remove the handled bytes
-                                FileHandler.Sender.DownloadByteQueue.RemoveRange(0, currentEncryptedBlock.Length);
+                                handler.DownloadByteQueue.RemoveRange(0, currentEncryptedBlock.Length);
                             }
                             // If decryption failed
                             catch
                             {
                                 // Close the file transfer socket for this client
-                                FileHandler.Sender.FTSocket.Close();
+                                handler.DownloadSocket.Close();
 
                                 // Log message stating that the file could not be recieved
-                                OnServerInformation(Messages.GetErrorMessage(109), Responses.Error);
+                                OnServerInformation(ServerMessage.Get(19), Responses.Error);
 
-                                // Todo: Cleanup
+                                // Todo: Cleanup of the broken file
 
                                 // Return
                                 return;
                             }
 
-
-                            // Call the event
-                            OnDownloadInformation(FileHandler.FileName, FileHandler.FileSize, FileHandler.ActualSize);
-
                             // If the whole file has been received
                             if (fileDownloaded)
                             {
-                                OnServerInformation(Messages.GetMessage(104, FileHandler.FileName), Responses.OK);
-                                FileHandler.Sender.FTSocket.Close();
+                                // Send information through the server information event
+                                OnServerInformation(ServerMessage.Get(13, handler.FileName, ((ConnectionViewModel)handler.OptionalParameter).ID), Responses.OK);
+                                // Close the downloading socket between the server and the client
+                                handler.DownloadSocket.Close();
+
+                                // Remove the download from the client
+                                (handler.OptionalParameter as ConnectionViewModel).Downloads.Remove(
+                                    (handler.OptionalParameter as ConnectionViewModel).Downloads
+                                    .First(d => d.DownloadID.CompareTo(handler.DownloadID) == 0)
+                                    );
+
+                                // We don't want to keep receiving any more bytes, the file is downloaded
                                 return;
                             }
 
                         }
                 }
                 // Keep receiving bytes
-                FileHandler.Sender.FTSocket.BeginReceive(FileHandler.Sender.DownloadBuffer, 0, 
-                                                              FileHandler.Sender.DownloadBuffer.Length, 
-                                                              SocketFlags.None,
-                                                              new AsyncCallback(DownloadSocketReceiveCallback), FileHandler);
+                handler.DownloadSocket.BeginReceive(handler.DownloadBuffer, 0, 
+                                                    handler.DownloadBuffer.Length, 
+                                                    SocketFlags.None,
+                                                    new AsyncCallback(DownloadSocketReceiveCallback), handler);
 
             }
         }

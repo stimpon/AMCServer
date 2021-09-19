@@ -93,22 +93,9 @@
         #region File transfer properties
 
         /// <summary>
-        /// Gets or sets the file transfer connection.
+        /// This list contains all current downloads from this client
         /// </summary>
-        /// <value>
-        /// The file transfer connection.
-        /// </value>
-        public Socket FTSocket { get; set; }
-
-        /// <summary>
-        /// This client's global data buffer
-        /// </summary>
-        public byte[] DownloadBuffer { get; set; }
-
-        /// <summary>
-        /// Gets or sets the byte queue for this client (The bytes that are being handled at the moment)
-        /// </summary>
-        public List<byte> DownloadByteQueue { get; set; } = new List<byte>();
+        public List<DownloadHandler> Downloads { get; set; }
 
         #endregion
 

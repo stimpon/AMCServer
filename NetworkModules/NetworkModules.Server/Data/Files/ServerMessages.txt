@@ -1,0 +1,139 @@
+﻿1
+SERVER_INFORMATION
+{0} tried to establish connection but was refused due to bad handshake
+
+2
+SERVER_INFORMATION
+{0} tried to establish connection but failed due to unknown error. Error: {1}
+
+3
+SERVER_INFORMATION
+Server could not be started, specified listening port is already in use. Change the listening port and restart the server. 
+
+4
+SERVER_INFORMATION
+File-transfer socket could not be started, specified port is already in use. Change the file-transfer socket port and restart the socket. 
+
+5
+SERVER_INFORMATION
+Client {0} rejected the file transfer, Error: {1}
+
+6
+SERVER_INFORMATION
+Client with the specified id {0} does not exist
+
+7
+SERVER_INFORMATION
+Message could not be sent, server is not bound to any client
+
+8
+SERVER_INFORMATION
+Error, trying to recieve a file from a non existing client, id: {0}
+
+9
+SERVER_INFORMATION
+New connection from {0} was established
+
+10
+SERVER_INFORMATION
+Server is now running
+
+11
+SERVER_INFORMATION
+Server has been shut down
+
+12
+SERVER_INFORMATION
+Server is no longer bound to client {0}
+
+13
+SERVER_INFORMATION
+{0} has been downloaded successfuly from client {1}
+
+14
+SERVER_INFORMATION
+Server is now bound to client {0}
+
+15
+SERVER_INFORMATION
+File-transfer socket is now online
+
+16
+SERVER_INFORMATION
+File-transfer socket is now offline
+
+17
+SERVER_INFORMATION
+No files can be downloaded at the moment since the file-transfer socket is offline
+
+18
+SERVER_INFORMATION
+File-transfer socket can't be started until the server has been started
+
+19
+SERVER_INFORMATION
+File could not be downloaded, received bytes could not be decrypted
+
+20
+SERVER_INFORMATION
+Client {0} was trying to download: {1} but the file is being used by another process and cannot be sent at the moment
+
+21
+SERVER_INFORMATION
+File {0} has been sent to client {1}
+
+22
+SERVER_INFORMATION
+Download started from client {0}. Filename: {1}, identifier: {2}
+
+23
+SERVER_INFORMATION
+Server is already running
+
+24
+SERVER_INFORMATION
+Server is not running
+
+25
+SERVER_INFORMATION
+File-transfer socket has been closed
+
+26
+SERVER_INFORMATION
+File-transfer socket is not running
+
+27
+SERVER_INFORMATION
+Data was recieved from {0} but the signature could not be verified. Data: {1}
+
+28
+SERVER_INFORMATION
+Unknown connection tried to connect to the file-transfer socket
+
+29
+SERVER_INFORMATION
+A connection was made to the FTP socket, but the server is not expecting a connection at the moment. REP: {0} 
+
+30
+SERVER_INFORMATION
+Unknown client tried to connect to the file transfer socket but was refused. RemoteEndPoint: {0}
+
+31
+SERVER_INFORMATION
+Files can not be received from client {0}, client does not exist
+
+32
+SERVER_INFORMATION
+The download of the file {0} could not be started. Error: {1}
+
+33
+SERVER_INFORMATION
+Unknown error occurred while receiving data from a client. Error: {1}
+
+34
+SERVER_INFORMATION
+Client {0} does not exist
+
+35
+SERVER_INFORMATION
+Disconnecting client {0}

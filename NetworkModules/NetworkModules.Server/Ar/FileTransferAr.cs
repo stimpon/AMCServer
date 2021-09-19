@@ -3,14 +3,11 @@
 /// </summary>
 namespace NetworkModules.Server
 {
-    #region Required namespaces
+    // Rrequred namespaces
     using NetworkModules.Core;
-    #endregion
+    using System.Net.Sockets;
 
-    /// <summary>
-    /// Ar object for the FT socket
-    /// </summary>
-    public partial class FTSocketConnectARServer
+    public class FileTransferAr
     {
         /// <summary>
         /// Gets or sets the mode.

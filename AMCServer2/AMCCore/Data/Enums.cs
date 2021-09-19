@@ -12,4 +12,23 @@ namespace AMCCore
         File,
         Folder
     }
+
+    /// <summary>
+    /// For the file explorer, local or remote navigation
+    /// </summary>
+    public enum NavigationLocations
+    {
+        /// <summary>
+        /// No navigation
+        /// </summary>
+        None,
+        /// <summary>
+        /// Local PC navigation
+        /// </summary>
+        Local,
+        /// <summary>
+        /// Remote PC navigation
+        /// </summary>
+        Remote
+    }
 }

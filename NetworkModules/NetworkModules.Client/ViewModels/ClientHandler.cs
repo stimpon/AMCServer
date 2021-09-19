@@ -1,6 +1,9 @@
-﻿namespace NetworkModules.Client
+﻿/// <summary>
+/// Root namespace
+/// </summary>
+namespace NetworkModules.Client
 {
-    // Required namespaces >>
+    #region Required namespaces
     using System;
     using System.ComponentModel;
     using System.IO;
@@ -10,6 +13,7 @@
     using System.Text;
     using NetworkModules.Core;
     using System.Collections.Generic;
+    #endregion
 
     /// <summary>
     /// Client backend class that handles all communication to the 
@@ -123,11 +127,6 @@
         /// </summary>
         private string DownloadingDirectory;
 
-        /// <summary>
-        /// Message handler
-        /// </summary>
-        private Messages Messages;
-
         #endregion
 
         #region Events
@@ -158,7 +157,7 @@
         public ClientHandler(int port, IPAddress server_ip, int serverFTPPort)
         {
             /* Port cant be negative but the IPEndpoint Class does
-             * not accespt uint's in the parameter
+             *  not accespt uint's in the parameter
              */
             if (port <= 0)
                 throw new InvalidValueException(nameof(port), port);
@@ -185,7 +184,7 @@
             if(ClientState == ClientStates.Connected)
             {
                 // Send client message
-                OnClientInformation(Messages.GetMessage(100), Responses.Warning);
+                OnClientInformation(ClientMessage.Get(1), Responses.Warning);
                 return;
             }
 
@@ -217,7 +216,7 @@
             if (ClientState == ClientStates.Disconnected)
             {
                 // Send client information stating that the data could not be sent
-                OnClientInformation(Messages.GetWarning(401), Responses.Warning);
+                OnClientInformation(ClientMessage.Get(2), Responses.Warning);
                 // Exit
                 return;
             }
@@ -295,7 +294,7 @@
             if (ClientState != ClientStates.Connected)
             {
                 // Raise information event
-                OnClientInformation(Messages.GetMessage(107), Responses.Information);
+                OnClientInformation(ClientMessage.Get(3), Responses.Information);
             }
 
             // Set the path
@@ -322,9 +321,6 @@
         /// </summary>
         private void Initialize()
         {
-            // Create the message handler
-            Messages = new Messages();
-
             // Setup server buffersize, buffer and queue
             GlobalBufferSize = 10240;
             GlobalBuffer = new byte[GlobalBufferSize];
@@ -383,7 +379,7 @@
             Array.Clear(FileEncryptor.IV, 0, FileEncryptor.IV.Length);
 
             // Send message stating that the file was sent to the server successfuly
-            OnClientInformation(Messages.GetMessage(200, new FileInfo(FilePath).Name), Responses.OK);
+            OnClientInformation(ClientMessage.Get(4, new FileInfo(FilePath).Name), Responses.OK);
 
             // Close the FileSender socket
             FileTransferSocket.Close();
@@ -397,11 +393,11 @@
         /// Fires when the client has new information
         /// </summary>
         /// <param name="Data"></param>
-        protected virtual void OnClientInformation(string Information, Responses type)
+        protected virtual void OnClientInformation(IMessage message, Responses type)
         {
             // Check so the event is not null
             if (ClientInformation != null)
-                ClientInformation(this, new InformationEventArgs() { Information = Information, MessageType = type });
+                ClientInformation(this, new InformationEventArgs() { Message = message, MessageType = type });
         }
 
         /// <summary>
@@ -450,7 +446,7 @@
                 // Send RSA key
                 ServerConnection.Send(Decryptor.ExportRSAPublicKey());
 
-                OnClientInformation(Messages.GetMessage(101), Responses.OK);
+                OnClientInformation(ClientMessage.Get(5), Responses.OK);
 
                 // Change the state
                 ClientState = ClientStates.Connected;
@@ -464,7 +460,7 @@
             catch (Exception ex)
             {
                 // Send error stating that a connection to the server could not be established
-                OnClientInformation(Messages.GetErrorMessage(300, ex.Message), Responses.Error);
+                OnClientInformation(ClientMessage.Get(6, ex.Message), Responses.Error);
 
                 // Set the client state to disconnected
                 ClientState = ClientStates.Disconnected;
@@ -494,7 +490,7 @@
                 s.Close();
 
                 // Send error stating that the client was disconnected from the server
-                OnClientInformation(Messages.GetErrorMessage(301), Responses.Error);
+                OnClientInformation(ClientMessage.Get(7), Responses.Error);
 
                 // Set the connection state to disconnected
                 ClientState = ClientStates.Disconnected;
@@ -577,7 +573,7 @@
                             else
                             {
                                 // Send message stating that data was received but that it could not be verified
-                                OnClientInformation(Messages.GetWarning(400, CurrentDataString), Responses.Warning);
+                                OnClientInformation(ClientMessage.Get(8, CurrentDataString), Responses.Warning);
                             }
 
                             // Clear the signature
@@ -638,7 +634,7 @@
                             FileTransferSocket.Close();
 
                             // Send information to the client
-                            OnClientInformation(Messages.GetMessage(201, FTar.FileName), Responses.Information);
+                            OnClientInformation(ClientMessage.Get(9, FTar.FileName), Responses.Information);
 
                             // Return
                             return;
@@ -667,7 +663,7 @@
                     catch (Exception ex)
                     {
                         // Send information stating that the file transfer was rejected
-                        OnClientInformation(Messages.GetErrorMessage(302, ex.Message), Responses.Error);
+                        OnClientInformation(ClientMessage.Get(10, ex.Message), Responses.Error);
                     }
                 }
                 // Else if the file should be downloaded
@@ -715,7 +711,7 @@
                         // Close the connection
                         FileTransferSocket.Close();
                         // Send error message stating what happened
-                        OnClientInformation(ex.Message, Responses.Error);
+                        OnClientInformation(ClientMessage.Get(13, FTar.FileName, ex.Message), Responses.Error);
                     }
 
                     // Begin receiving file from the client
@@ -804,7 +800,7 @@
                                 FileTransferSocket.Close();
 
                                 // Log message stating that the file could not be downloaded
-                                OnClientInformation(Messages.GetErrorMessage(109), Responses.Error);
+                                OnClientInformation(ClientMessage.Get(11), Responses.Error);
 
                                 // Todo: Cleanup
 
@@ -819,7 +815,7 @@
                             // If the whole file has been downloaded
                             if (fileDownloaded)
                             {
-                                OnClientInformation(Messages.GetMessage(104, FileHandler.FileName), Responses.OK);
+                                OnClientInformation(ClientMessage.Get(12, FileHandler.FileName), Responses.OK);
                                 FileTransferSocket.Close();
                                 return;
                             }

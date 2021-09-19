@@ -10,7 +10,7 @@
         /// <summary>
         /// Data
         /// </summary>
-        public string Information           { get; set; }
+        public IMessage Message { get; set; }
 
         /// <summary>
         /// Timestamp

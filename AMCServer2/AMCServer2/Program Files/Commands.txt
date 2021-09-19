@@ -1,7 +1,8 @@
-﻿start     	     - Start services (flags -a: all services, -s: server, -f: file-transfer socket)
-stop       	     - Stops services (flags NONE: stops all services, -f: file-transfer socket)
-bind [ID]  	     - Bind the server to a client. [ID]: Client ID
-getdrives  	     - Get all drives from the bound client
-cls       	     - Clear the terminal
-setpriv [ID] [PL]   - Set privileges for an active client. [ID]: Client ID [PL]: Privilege level
-help       	     - Provides help information
+﻿STRSRV ;; Start services (flags -a: all services, -s: server, -f: file-transfer socket)
+STPSRV ;; Stops services (flags NONE: stops all services, -f: file-transfer socket)
+BNDCLT [ID] ;; Bind the server to a client. [ID]: Client ID
+UNBIND [ID] ;; Unbind the server from the bound client
+getdrives ;; Get all drives from the bound client
+CLRSCR ;; Clear the terminal
+SETPRV [ID] [PL] ;; Set privileges for an active client. [ID]: Client ID [PL]: Privilege level
+HELP ;; Provides help information

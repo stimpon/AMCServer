@@ -81,21 +81,9 @@ namespace AMCClient2
         public override ThreadSafeObservableCollection<FileExplorerObject> ExplorerItems { get; set; }
 
         /// <summary>
-        /// Name of the file
+        /// Gets or sets the current navigation.
         /// </summary>
-        public override string FileName { get; set; }
-        /// <summary>
-        /// Size of the file
-        /// </summary>
-        public override decimal Size { get; set; }
-        /// <summary>
-        /// Downloaded bytes
-        /// </summary>
-        public override decimal ActualSize { get; set; }
-        /// <summary>
-        /// String for the View
-        /// </summary>
-        public override string ProgresString { get; set; }
+        public override NavigationLocations CurrentNavigation { get; set; }
 
         #endregion
 
@@ -139,7 +127,6 @@ namespace AMCClient2
             // Subscribe to client events
             Container.Get<ClientHandler>().ClientInformation += OnClientInformation;
             Container.Get<ClientHandler>().DataReceived += OnDataReceived;
-            Container.Get<ClientHandler>().DownloadInformation += OnDownloadInformation;
         }
         /// <summary>
         /// Creates the binding operations.
@@ -160,7 +147,10 @@ namespace AMCClient2
         {
             // Set the accessable ViewModel to this class
             VM = this;
-            
+
+            // We are not navigating any PC at the moment
+            this.CurrentNavigation = NavigationLocations.None;
+
             // This is the standard message that shows when the program starts
             Terminal = new ThreadSafeObservableCollection<ILogMessage>() {
                 new LogMessage() { Content = "AMCClient [Version 1.0.0]", ShowTime = false, Type = Responses.Information } ,
@@ -262,12 +252,28 @@ namespace AMCClient2
         /// <param name="e"></param>
         private void OnClientInformation(object sender, InformationEventArgs e)
         {
-            // forward the message to the console
+            // Declare message string
+            string messageString = string.Empty;
+
+            // If this is just a server information
+            if (e.Message.GetType().Equals(typeof(ClientMessage)))
+            {
+                // We only want the message
+                messageString = e.Message.Message;
+            }
+            // Else...
+            else
+            {
+                // Extract code and everything
+                messageString = $"{e.Message.Code} - {e.Message.Title}\n{e.Message.Message}";
+            }
+
+            // Log the message
             Terminal.Add(new LogMessage()
             {
-                Content = e.Information,
-                EventTime = DateTime.Now.ToString(),
-                ShowTime = true,
+                Content = messageString,
+                ShowTime = (e.InformationTimeStamp != null) ? true : false,
+                EventTime = e.InformationTimeStamp,
                 Type = e.MessageType
             });
         }

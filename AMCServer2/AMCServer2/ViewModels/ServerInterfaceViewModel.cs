@@ -86,21 +86,9 @@ namespace AMCServer2
         public override ThreadSafeObservableCollection<ILogMessage> Terminal { get; set; }
 
         /// <summary>
-        /// Name of the file
+        /// The current navigation
         /// </summary>
-        public override string FileName { get; set; }
-        /// <summary>
-        /// Size of the file
-        /// </summary>
-        public override decimal Size { get; set; }
-        /// <summary>
-        /// Downloaded bytes
-        /// </summary>
-        public override decimal ActualSize { get; set; }
-        /// <summary>
-        /// String for the View
-        /// </summary>
-        public override string ProgresString { get; set; }
+        public override NavigationLocations CurrentNavigation { get; set; }
 
         #endregion
 
@@ -128,10 +116,13 @@ namespace AMCServer2
             #region Commands with flags
 
             // :bind + [ID] >> Bind the server to a client
-            if (CommandString.ToLower().StartsWith("bind "))
+            if (CommandString.ToUpper().StartsWith("BNDCLT"))
             {
+                // Get the flag from the command
+                var flag = CommandString.Split(' ')[1];
+
                 // Try to parse the argument into an int
-                if (int.TryParse(CommandString.Substring(5), out int ID))
+                if (int.TryParse(flag, out int ID))
                     Container.GetSingleton<ServerHandler>().BindServer(ID);
                 else
                     Terminal.Add(new LogMessage() { Content  = $"'{CommandString[5..]}' is an invalid ID", 
@@ -139,7 +130,7 @@ namespace AMCServer2
                                                   Type     = Responses.Error });
             }
             // :setpriv [ID] [PL] >> Set privileges for an active connection
-            else if (CommandString.ToLower().StartsWith("setpriv "))
+            else if (CommandString.ToUpper().StartsWith("SETPRV"))
             {
                 // Extract substrings from command
                 var commandFlags = CommandString.Split(' ')[1..];
@@ -177,7 +168,7 @@ namespace AMCServer2
                     Terminal.Add(new LogMessage() { Content = $"Invalid or to few command flags, check :help", Type = Responses.Information });
             }
             // start + parameters for what services to start
-            else if (CommandString.ToLower().StartsWith("start"))
+            else if (CommandString.ToUpper().StartsWith("STRSRV"))
             {
                 // Get all flags
                 var flags = CommandString.Split(' ')[1..];
@@ -233,7 +224,7 @@ namespace AMCServer2
                 }
             }
             // stop + parameters for what services to stop
-            else if (CommandString.ToLower().StartsWith("stop"))
+            else if (CommandString.ToUpper().StartsWith("STPSRV"))
             {
                 // Get all flags
                 var flags = CommandString.Split(' ')[1..];
@@ -274,16 +265,22 @@ namespace AMCServer2
             else
             {
                 // Check the command (NOT CASE SENSITIVE)
-                switch (CommandString.ToLower())
+                switch (CommandString.ToUpper())
                 {
-                    // :cls >> Clear the console                   
-                    case "cls": Terminal.Clear(); break;
+                    // :CLRSCR >> Clear the console                   
+                    case "CLRSCR": Terminal.Clear(); break;
 
-                    // :unbind >> unbind the server from the currently bound client
-                    case "unbind": Container.GetSingleton<ServerHandler>().UnbindServer(); break;
+                    // :UNBIND >> unbind the server from the currently bound client
+                    case "UNBIND": 
+                        Container.GetSingleton<ServerHandler>().UnbindServer();
+
+                        ExplorerItems.Clear();
+
+                        this.CurrentNavigation = NavigationLocations.None;
+                        break;
 
                     // :getdrives >> Query drive info from the bound client
-                    case "getdrives":
+                    case "SSH":
                         // Prepare the explorer
                         ExplorerItems.Clear();
                         // Clear current path
@@ -292,16 +289,30 @@ namespace AMCServer2
                         Container.GetSingleton<ServerHandler>().Send("[DRIVES]");
                         break;
 
-                    // :help >> Provide help information
-                    case "help":
-                        // Read all lines from the help file
-                        foreach (string ch in File.ReadAllLines(Environment.CurrentDirectory + "\\Program Files\\Commands.txt"))
-                            // Display each line correctly in the terminal
-                            Terminal.Add(new LogMessage()
-                            {
-                                Content = ch,
-                                ShowTime = false
-                            }); break;
+                    // :HELP >> Provide help information
+                    case "HELP":
+                        // Open a streamtrader to read the help file
+                        using (StreamReader sr = new StreamReader(Environment.CurrentDirectory + "\\Program Files\\Commands.txt"))
+                        {
+                            // Declare the current line holder
+                            string currLine = null;
+                            // Keep reading until we get a null line
+                            while ((currLine = sr.ReadLine()) != null)
+                            {                               
+                                // Read the next line
+                                string[] currCommand = currLine.Split(";;");
+                                // Format the line
+                                string formated = String.Format("{0,-21} - {1,-50}", currCommand[0], currCommand[1]);
+
+                                // Display each line correctly in the terminal
+                                Terminal.Add(new LogMessage()
+                                {
+                                    Content = formated,
+                                    ShowTime = false
+                                });
+                            }
+                        }
+                        break;
 
                     // Invalid command
                     default:
@@ -342,7 +353,6 @@ namespace AMCServer2
             // Subscribe to server events
             Container.GetSingleton<ServerHandler>().NewServerInformation += OnServerInformation;
             Container.GetSingleton<ServerHandler>().NewDataReceived += OnDataReceived;
-            Container.GetSingleton<ServerHandler>().DownloadInformation += OnDownloadInformation;
         }
         /// <summary>
         /// Creates the binding operations.
@@ -363,6 +373,9 @@ namespace AMCServer2
         {
             // Set the accessable ViewModel to this class
             VM = this;
+
+            // We are not doing any exploring when starting
+            this.CurrentNavigation = NavigationLocations.None;
 
             // This is the standard message that shows when the program starts
             Terminal = new ThreadSafeObservableCollection<ILogMessage>() {
@@ -386,14 +399,31 @@ namespace AMCServer2
         /// <param name="e"></param>
         private void OnServerInformation(object sender, InformationEventArgs e)
         {
+            // Declare message string
+            string messageString = string.Empty;
+
+            // If this is just a server information
+            if (e.Message.GetType().Equals(typeof(ServerMessage)))
+            {
+                // We only want the message
+                messageString = e.Message.Message;
+            }
+            // Else...
+            else
+            {
+                // Extract code and everything
+                messageString = $"{e.Message.Code} - {e.Message.Title}\n{e.Message.Message}";
+            }
+
             // Log the message
             Terminal.Add(new LogMessage()
             {
-                Content   = e.Information,
+                Content   = messageString,
                 ShowTime  = (e.InformationTimeStamp != null) ? true : false,
                 EventTime = e.InformationTimeStamp,
                 Type      = e.MessageType
             }) ;
+
         }
 
         /// <summary>
@@ -415,49 +445,59 @@ namespace AMCServer2
 
             #region When you navigates a client's PC
 
-            // Client sent a HDD object
-            if (e.Data.StartsWith("[DRIVE]"))
+            try
             {
-                // Split the received data
-                string[] data = e.Data.Substring(7).Split('|');
-
-                AddExplorerItem(new FileExplorerObject()
+                // Client sent a HDD object
+                if (e.Data.StartsWith("[DRIVE]"))
                 {
-                    Name = $"{data[1]} ({data[0]})",
-                    Path = data[0],
-                    Type = ExplorerItemTypes.HDD,
-                    PermissionsDenied = false
-                });
+                    // Split the received data
+                    string[] data = e.Data.Substring(7).Split('|');
+
+                    AddExplorerItem(new FileExplorerObject()
+                    {
+                        Name = $"{data[1]} ({data[0]})",
+                        Path = data[0],
+                        Type = ExplorerItemTypes.HDD,
+                        PermissionsDenied = false
+                    });
+                }
+                // Client sent a file object
+                else if (e.Data.StartsWith("[FILE]"))
+                {
+                    // Split the received data
+                    string[] data = e.Data.Substring(6).Split('|');
+
+                    // Add item to the file explorer
+                    AddExplorerItem(new FileExplorerObject()
+                    {
+                        Name = data[0],
+                        Extension = data[1],
+                        Size = long.Parse(data[2]),
+                        Type = ExplorerItemTypes.File
+                    });
+                }
+                // Client sent a folder
+                else if (e.Data.StartsWith("[FOLDER]"))
+                {
+                    // Split the recieved data
+                    string[] data = e.Data.Substring(8).Split('|');
+
+                    // Add the file explorer item
+                    AddExplorerItem(new FileExplorerObject()
+                    {
+                        Name = data[0],
+                        Type = ExplorerItemTypes.Folder,
+                        PermissionsDenied = bool.Parse(data[1])
+                    });
+                }
             }
-            // Client sent a file object
-            else if (e.Data.StartsWith("[FILE]"))
+            // We want to always do this...
+            finally
             {
-                // Split the received data
-                string[] data = e.Data.Substring(6).Split('|');
-
-                // Add item to the file explorer
-                AddExplorerItem(new FileExplorerObject()
-                {
-                    Name = data[0],
-                    Extension = data[1],
-                    Size = long.Parse(data[2]),
-                    Type = ExplorerItemTypes.File
-                });
+                // We are navigating a client's PC
+                this.CurrentNavigation = NavigationLocations.Remote;
             }
-            // Client sent a folder
-            else if (e.Data.StartsWith("[FOLDER]"))
-            {
-                // Split the recieved data
-                string[] data = e.Data.Substring(8).Split('|');
 
-                // Add the file explorer item
-                AddExplorerItem(new FileExplorerObject()
-                {
-                    Name = data[0],
-                    Type = ExplorerItemTypes.Folder,
-                    PermissionsDenied = bool.Parse(data[1])
-                });
-            }
 
             #endregion
 
@@ -557,8 +597,9 @@ namespace AMCServer2
             // Get the clicked file
             var Item = o as FileExplorerObject;
 
-            // Begin receiving the file
-            Container.GetSingleton<ServerHandler>().ReceiveFile(Container.GetSingleton<ServerHandler>().BoundClient,
+            // We need to call the receive file function before the server can download a file from the client
+            Container.GetSingleton<ServerHandler>().ReceiveFile(
+                Container.GetSingleton<ServerHandler>().BoundClient,
                 Environment.GetFolderPath(Environment.SpecialFolder.Desktop));
 
             // Send downloading request

@@ -1,0 +1,51 @@
+﻿1
+CLIENT_INFORMATION
+You are already connected to the server
+
+2
+CLIENT_INFORMATION
+Message could not be sent, you are not connected to the server
+
+3
+CLIENT_INFORMATION
+No files can be downloaded at the moment since you are not connected to the server
+
+4
+CLIENT_INFORMATION
+File: {0} was sent to the server"
+
+5
+CLIENT_INFORMATION
+Connection to the server was established
+
+6
+CLIENT_INFORMATION
+Connection to the server could not be established. Error: {0}
+
+7
+CLIENT_INFORMATION
+You were disconnected from the server
+
+8
+CLIENT_INFORMATION
+Data was received from the server but the signature could not be verified. Data: {0}
+
+9
+CLIENT_INFORMATION
+The server was trying to download: {0} but the file is being used by another process and cannot be sent at the moment
+
+10
+CLIENT_INFORMATION
+The server rejected the file transfer, Error: {0}
+
+11
+CLIENT_INFORMATION
+File could not be downloaded, received bytes could not be decrypted
+
+12
+CLIENT_INFORMATION
+{0} has been downloaded successfuly
+
+13
+CLIENT_INFORMATION
+The file {0} could not be downloaded from the server. Error: {1}

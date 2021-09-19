@@ -1,9 +1,9 @@
 ﻿/// <summary>
-/// Required namespaces
+/// Root namespace
 /// </summary>
 namespace AMCClient2
 {
-    #region Namespaces
+    #region Required namespaces
     using NetworkModules.Client;
     using Ninject;
     #endregion

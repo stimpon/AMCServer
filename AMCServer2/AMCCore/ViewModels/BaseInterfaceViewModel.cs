@@ -59,26 +59,10 @@ namespace AMCCore
         /// </summary>
         public abstract ThreadSafeObservableCollection<ILogMessage> Terminal { get; set; }
 
-        #endregion
-
-        #region Current download properties
-
         /// <summary>
-        /// Name of the file
+        /// Gets or sets the current navigation.
         /// </summary>
-        public abstract string FileName { get; set; }
-        /// <summary>
-        /// Size of the file
-        /// </summary>
-        public abstract decimal Size { get; set; }
-        /// <summary>
-        /// Downloaded bytes
-        /// </summary>
-        public abstract decimal ActualSize { get; set; }
-        /// <summary>
-        /// String for the View
-        /// </summary>
-        public abstract string ProgresString { get; set; }
+        public abstract NavigationLocations CurrentNavigation { get; set; }
 
         #endregion
 
@@ -92,8 +76,6 @@ namespace AMCCore
             // Set default values and instanciate objects
             _TerminalLock = new object();
             _ExplorerLock = new object();
-            Size = 1;
-            ActualSize = 0;
             CommandHistory = new string[0];
             ExplorerItems = new ThreadSafeObservableCollection<FileExplorerObject>();
         }
@@ -160,23 +142,6 @@ namespace AMCCore
 
             // Display the previous command
             CommandString = CommandHistory[CurrentCommandIndex];
-        }
-
-        /// <summary>
-        /// When new information about a download is available
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        protected void OnDownloadInformation(object sender, FileDownloadInformationEventArgs e)
-        {
-            FileName = e.FileName;
-            Size = e.FileSize;
-            ActualSize = e.ActualFileSize;
-
-            string SizeString = StringFormatingHelpers.BytesToSizeString(Size);
-            string ActualSizeString = StringFormatingHelpers.BytesToSizeString(ActualSize);
-
-            ProgresString = $"{ActualSizeString}/{SizeString}";
         }
 
         /// <summary>
