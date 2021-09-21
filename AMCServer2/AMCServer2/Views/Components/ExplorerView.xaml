@@ -1,0 +1,143 @@
+﻿<UserControl x:Class="AMCServer2.ExplorerView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:AMCServer2"
+             mc:Ignorable="d" DataContext="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type local:ServerView}}, Path=DataContext}"
+             d:DesignHeight="575" d:DesignWidth="450">
+    <Border Grid.Row="1">
+        <Grid>
+
+            <Grid.RowDefinitions>
+                <RowDefinition Height="25"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Background="{StaticResource SolidColor_DarkBlue}">
+                <TextBlock Text="{Binding CurrentPathOnClientPC}" Margin="10,0,10,0" FontSize="12" 
+                                        FontFamily="Consolas" VerticalAlignment="Center" Foreground="White"/>
+            </Border>
+
+            <Border Grid.Row="1" Background="{StaticResource SolidColor_Gray}">
+
+                <ListView Background="Transparent" ItemsSource="{Binding ExplorerItems}" HorizontalContentAlignment="Left"
+                                            BorderThickness="0" SelectionMode="Single" x:Name="LvExplorer" IsTabStop="False">
+
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="{x:Type ListViewItem}">
+
+                            <Setter Property="Background" Value="Transparent"/>
+
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate>
+
+                                        <Border Background="{TemplateBinding ListViewItem.Background}">
+                                            <DockPanel Margin="10,5,15,5" ScrollViewer.HorizontalScrollBarVisibility="Hidden">
+
+                                                <Border Width="30">
+                                                    <Grid>
+                                                        <TextBlock FontFamily="{StaticResource FontAwesome}" 
+                                                                            Text="{Binding Converter={local:FileTypeToIconConverter}}" 
+                                                                            FontSize="25" Foreground="{StaticResource SolidColor_Blue}" Width="30"/>
+                                                        <TextBlock FontFamily="{StaticResource FontAwesome}"
+                                                                            Text="{StaticResource Lock}" Visibility="{Binding PermissionsDenied, Converter={local:BoolToVisibilityConverter}}"
+                                                                            FontSize="18" Foreground="Gold" Width="30" TextAlignment="Center" HorizontalAlignment="Center"/>
+                                                    </Grid>
+                                                </Border>
+
+                                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" 
+                                                                            HorizontalAlignment="Left" FontFamily="Consolas"
+                                                                            Margin="15,0,0,0" FontSize="12"
+                                                                            Foreground="White" Width="180" TextTrimming="CharacterEllipsis"/>
+
+                                                <TextBlock Text="{Binding Extension}" VerticalAlignment="Center" 
+                                                                            HorizontalAlignment="Left" FontFamily="Consolas"
+                                                                            Margin="10,0,0,0" FontSize="12"
+                                                                            Foreground="White" Width="40"/>
+
+                                                <TextBlock Text="{Binding FormatedSizeString}" VerticalAlignment="Center" 
+                                                                            HorizontalAlignment="Right" FontFamily="Consolas"
+                                                                            Margin="10,0,5,0" FontSize="12"
+                                                                            Foreground="White" Width="60" TextAlignment="Right"/>
+
+                                                <Button Visibility="{Binding CanBeDownLoaded, Converter={local:BoolToVisibilityConverter}}"
+                                                                        Command="{Binding ElementName=LvExplorer, Path=DataContext.DownloadFileClick}"
+                                                                        CommandParameter="{Binding}">
+                                                    <Button.Template>
+                                                        <ControlTemplate>
+                                                            <Border BorderThickness="0" Width="50" RenderTransformOrigin="0.5,0.5">
+
+                                                                <Border.RenderTransform>
+                                                                    <ScaleTransform ScaleX="1" ScaleY="1" x:Name="ButtonScale"/>
+                                                                </Border.RenderTransform>
+
+                                                                <TextBlock FontFamily="{StaticResource FontAwesome}" Text="{StaticResource Download}" FontSize="22"                                                                           
+                                                                                            HorizontalAlignment="Right" Margin="0" Foreground="Black"
+                                                                                            />
+
+                                                                <Border.Triggers>
+                                                                    <EventTrigger RoutedEvent="MouseEnter">
+                                                                        <BeginStoryboard>
+                                                                            <Storyboard>
+                                                                                <DoubleAnimation Storyboard.TargetName="ButtonScale" 
+                                                                                                                    Storyboard.TargetProperty="(ScaleTransform.ScaleX)" To="1.2" Duration="00:00:00.1"/>
+
+                                                                                <DoubleAnimation Storyboard.TargetName="ButtonScale" 
+                                                                                                                    Storyboard.TargetProperty="(ScaleTransform.ScaleY)" To="1.2" Duration="00:00:00.1"/>
+                                                                            </Storyboard>
+                                                                        </BeginStoryboard>
+                                                                    </EventTrigger>
+                                                                    <EventTrigger RoutedEvent="MouseLeave">
+                                                                        <BeginStoryboard>
+                                                                            <Storyboard>
+                                                                                <DoubleAnimation Storyboard.TargetName="ButtonScale" 
+                                                                                                                    Storyboard.TargetProperty="(ScaleTransform.ScaleX)" To="1" Duration="00:00:00.1"/>
+
+                                                                                <DoubleAnimation Storyboard.TargetName="ButtonScale" 
+                                                                                                                    Storyboard.TargetProperty="(ScaleTransform.ScaleY)" To="1" Duration="00:00:00.1"/>
+                                                                            </Storyboard>
+                                                                        </BeginStoryboard>
+                                                                    </EventTrigger>
+                                                                </Border.Triggers>
+
+                                                            </Border>
+                                                        </ControlTemplate>
+                                                    </Button.Template>
+                                                </Button>
+
+                                            </DockPanel>
+
+                                            <Border.InputBindings>
+                                                <MouseBinding Gesture="LeftDoubleClick"
+                                                                                Command="{Binding ElementName=LvExplorer,
+                                                                                                Path=DataContext.ExplorerDoubleClick}" 
+                                                                                CommandParameter="{Binding}"/>
+                                            </Border.InputBindings>
+
+                                        </Border>
+
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="Gray"/>
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="DarkGray"/>
+                                </Trigger>
+                            </Style.Triggers>
+
+                        </Style>
+
+                    </ListView.ItemContainerStyle>
+
+                </ListView>
+
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

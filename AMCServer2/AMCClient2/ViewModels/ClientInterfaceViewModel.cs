@@ -81,9 +81,16 @@ namespace AMCClient2
         public override ThreadSafeObservableCollection<FileExplorerObject> ExplorerItems { get; set; }
 
         /// <summary>
-        /// Gets or sets the current navigation.
+        /// Contains all the downloads
         /// </summary>
-        public override NavigationLocations CurrentNavigation { get; set; }
+        public override ThreadSafeObservableCollection<IDownloadItem> Downloads { get; set; }
+
+        /// <summary>
+        /// Gets or sets the current menu.
+        /// </summary>
+        /// <exception cref="System.NotImplementedException">
+        /// </exception>
+        public override Menus CurrentMenu { get; set; }
 
         #endregion
 
@@ -147,9 +154,6 @@ namespace AMCClient2
         {
             // Set the accessable ViewModel to this class
             VM = this;
-
-            // We are not navigating any PC at the moment
-            this.CurrentNavigation = NavigationLocations.None;
 
             // This is the standard message that shows when the program starts
             Terminal = new ThreadSafeObservableCollection<ILogMessage>() {

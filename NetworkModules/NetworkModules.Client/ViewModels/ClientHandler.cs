@@ -68,11 +68,6 @@ namespace NetworkModules.Client
         private Socket ServerConnection;
 
         /// <summary>
-        /// Socket used for file transfer
-        /// </summary>
-        private Socket FileTransferSocket;
-
-        /// <summary>
         /// This programs private key
         /// </summary>
         private RSACryptoServiceProvider Encryptor;
@@ -126,6 +121,11 @@ namespace NetworkModules.Client
         /// Path where to save downloaded files
         /// </summary>
         private string DownloadingDirectory;
+
+        /// <summary>
+        /// The file transfer sockets
+        /// </summary>
+        private List<Socket> FileTransferSockets;
 
         #endregion
 
@@ -272,16 +272,20 @@ namespace NetworkModules.Client
             if (!File.Exists(FilePath)) return; // Exit
 
             // Create a new socket
-            FileTransferSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            Socket FileTransferSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+            // Save the socket
+            FileTransferSockets.Add(FileTransferSocket);
 
             // Connect to the server's file transfer socket
             FileTransferSocket.BeginConnect(FileTransferEndpoint,
-                                                    new AsyncCallback(FileTransferSocketConnectCallback),
-                                                    new FTSocketConnectARClient()
-                                                    {
-                                                        Mode = FileModes.Send,
-                                                        FileName = FilePath
-                                                    });
+                                            new AsyncCallback(FileTransferSocketConnectCallback),
+                                            new FileTransferAr()
+                                            {
+                                                Mode       = FileModes.Send,
+                                                FileName   = FilePath,
+                                                connection = FileTransferSocket
+                                            });
         }
 
         /// <summary>
@@ -301,12 +305,15 @@ namespace NetworkModules.Client
             DownloadingDirectory = path;
 
             // Prepare file transfer socket
-            FileTransferSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            Socket FileTransferSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+            // Save this socket
+            FileTransferSockets.Add(FileTransferSocket);
 
             // Connect to the server's file transfer socket
             FileTransferSocket.BeginConnect(FileTransferEndpoint,
                                                     new AsyncCallback(FileTransferSocketConnectCallback),
-                                                    new FTSocketConnectARClient() 
+                                                    new FileTransferAr() 
                                                     { 
                                                         Mode = FileModes.Download
                                                     });
@@ -337,6 +344,7 @@ namespace NetworkModules.Client
             Encryptor = new RSACryptoServiceProvider(2048);
 
             FileTransferEndpoint = new IPEndPoint(ServerIP, ServerFTPPort);
+            FileTransferSockets = new List<Socket>();
 
             // Set serverstate to offline
             ClientState = ClientStates.Disconnected;
@@ -347,7 +355,7 @@ namespace NetworkModules.Client
         /// </summary>
         /// <param name="FilePath"></param>
         /// <param name="PacketSize"></param>
-        private void SendFile(string FilePath)
+        private void SendFile(string FilePath, FileTransferAr ar)
         {
             // Create encryptor
             ICryptoTransform Crypto = FileEncryptor.CreateEncryptor();
@@ -370,7 +378,7 @@ namespace NetworkModules.Client
                     var Encrypyted = Crypto.TransformFinalBlock(Block, 0, Block.Length);
 
                     // Send the block to the server
-                    FileTransferSocket.Send(Encrypyted);
+                    ar.connection.Send(Encrypyted);
                 }
             }
 
@@ -381,8 +389,11 @@ namespace NetworkModules.Client
             // Send message stating that the file was sent to the server successfuly
             OnClientInformation(ClientMessage.Get(4, new FileInfo(FilePath).Name), Responses.OK);
 
+            // Remove this connection from the FT sockets collection
+            FileTransferSockets.Remove(ar.connection);
+
             // Close the FileSender socket
-            FileTransferSocket.Close();
+            ar.connection.Close();
         }
 
         #endregion
@@ -416,9 +427,14 @@ namespace NetworkModules.Client
         /// <param name="FileName"></param>
         /// <param name="FileSize"></param>
         /// <param name="ActualSize"></param>
-        protected virtual void OnDownloadInformation(string FileName, long FileSize, long ActualSize)
+        protected virtual void OnDownloadInformation(DownloadInformation download)
         {
-            DownloadInformation?.Invoke(this, new FileDownloadInformationEventArgs() { FileName = FileName, FileSize = FileSize, ActualFileSize = ActualSize });
+            // Raise the event
+            DownloadInformation?.Invoke(this, new FileDownloadInformationEventArgs() 
+            { 
+                Download = download,
+                InformationTimeStamp = DateTime.Now.ToString()
+            });
         }
 
         #endregion
@@ -604,13 +620,13 @@ namespace NetworkModules.Client
         /// <param name="ar"></param>
         private void FileTransferSocketConnectCallback(IAsyncResult ar)
         {
+            // Get the Ar object
+            var FTar = (FileTransferAr)ar.AsyncState;
+            
             try
             {
                 // Endconnect
-                FileTransferSocket.EndConnect(ar);
-
-                // Get filemode
-                FTSocketConnectARClient FTar = (FTSocketConnectARClient)ar.AsyncState;
+                FTar.connection.EndConnect(ar);
 
                 // If the file should be sent to the server
                 if(FTar.Mode == FileModes.Send)
@@ -631,7 +647,7 @@ namespace NetworkModules.Client
                         catch
                         {
                             // Close the socket and return
-                            FileTransferSocket.Close();
+                            FTar.connection.Close();
 
                             // Send information to the client
                             OnClientInformation(ClientMessage.Get(9, FTar.FileName), Responses.Information);
@@ -641,27 +657,29 @@ namespace NetworkModules.Client
                         }
 
                         // Send randomly generated 128 bit AES key
-                        FileTransferSocket.Send(Encryptor.Encrypt(FileEncryptor.Key, true));
+                        FTar.connection.Send(Encryptor.Encrypt(FileEncryptor.Key, true));
 
                         // Send randomly generated IV
-                        FileTransferSocket.Send(Encryptor.Encrypt(FileEncryptor.IV, true));
+                        FTar.connection.Send(Encryptor.Encrypt(FileEncryptor.IV, true));
 
                         // Send filename
-                        FileTransferSocket.Send(
+                        FTar.connection.Send(
                             Encryptor.Encrypt(Encoding.Default.GetBytes(new FileInfo(FTar.FileName).Name), 
                             true));
 
                         // Send filesize
-                        FileTransferSocket.Send(
+                        FTar.connection.Send(
                             Encryptor.Encrypt(Encoding.Default.GetBytes((new FileInfo(FTar.FileName)).Length.ToString()), 
                             true));
 
                         // Send the file
-                        SendFile(FTar.FileName);
+                        SendFile(FTar.FileName, FTar);
                     }
                     // If the server rejected the file
                     catch (Exception ex)
                     {
+                        // Remove this connection from the list of connections
+                        FileTransferSockets.Remove(FTar.connection);
                         // Send information stating that the file transfer was rejected
                         OnClientInformation(ClientMessage.Get(10, ex.Message), Responses.Error);
                     }
@@ -676,7 +694,7 @@ namespace NetworkModules.Client
                     // Declare filename
                     string FileName = String.Empty;
                     // Declare filesize
-                    long FileSize = -1;
+                    long FileSize = 0;
 
                     #endregion
 
@@ -689,44 +707,60 @@ namespace NetworkModules.Client
                         FileDecryptor = Cryptography.CreateAesEncryptor(false, false);
 
                         // Receive 128 bin AES key
-                        FileTransferSocket.Receive(Data);
+                        FTar.connection.Receive(Data);
                         FileDecryptor.Key = Decryptor.Decrypt(Data, true);
 
                         // Receive IV
-                        FileTransferSocket.Receive(Data);
+                        FTar.connection.Receive(Data);
                         FileDecryptor.IV = Decryptor.Decrypt(Data, true);
 
                         // Receive filename
-                        FileTransferSocket.Receive(Data);
+                        FTar.connection.Receive(Data);
                         FileName = Encoding.Default.GetString(Decryptor.Decrypt(Data, true));
 
                         // Receive filesize
-                        FileTransferSocket.Receive(Data);
+                        FTar.connection.Receive(Data);
                         FileSize = long.Parse(Encoding.Default.GetString(Decryptor.Decrypt(Data, true)));
                     }
 
                     // Close the connection if it didn't work
                     catch (Exception ex)
                     {
+                        // Remove this connection from the list of connections
+                        FileTransferSockets.Remove(FTar.connection);
                         // Close the connection
-                        FileTransferSocket.Close();
+                        FTar.connection.Close();
                         // Send error message stating what happened
                         OnClientInformation(ClientMessage.Get(13, FTar.FileName, ex.Message), Responses.Error);
                     }
 
+                    // Create our special ar
+                    FileTransferDownloadAr download_ar = new FileTransferDownloadAr()
+                    {
+                        connection = FTar.connection,
+                        Decryptor = new FileDecryptor
+                        (
+                            FileDecryptor,
+                            FileName,
+                            DownloadingDirectory,
+                            FileSize
+                        )
+                    };
+
                     // Begin receiving file from the client
-                    FileTransferSocket.BeginReceive(DownloadBuffer, 0, DownloadBuffer.Length, SocketFlags.None,
-                        new AsyncCallback(DownloadSocketReceiveCallback),
-                        // Create a new FileHandler and pass it to the callback function
-                        new FileDecryptor(FileDecryptor,
-                                          FileName,
-                                          DownloadingDirectory,
-                                          FileSize));
+                    FTar.connection.BeginReceive(DownloadBuffer, 0, DownloadBuffer.Length, SocketFlags.None,
+                        new AsyncCallback(DownloadSocketReceiveCallback), download_ar);
                 }
             }
 
             // Server rejected the file transfer
-            catch { }
+            catch 
+            {
+                // If we got the connection
+                if(FTar != null)
+                    // Remove this connection from the list of connections
+                    FileTransferSockets.Remove(FTar.connection);
+            }
         }
 
         /// <summary>
@@ -736,10 +770,10 @@ namespace NetworkModules.Client
         private void DownloadSocketReceiveCallback(IAsyncResult ar)
         {
             // Filehandler from the callback
-            FileDecryptor FileHandler = ar.AsyncState as FileDecryptor;
+            var FTar = ar.AsyncState as FileTransferDownloadAr;
 
             // Get the amount of bytes received
-            int Rec = FileTransferSocket.EndReceive(ar);
+            int Rec = FTar.connection.EndReceive(ar);
 
             // Check if any bytes where sent
             if (Rec > 0)
@@ -754,7 +788,7 @@ namespace NetworkModules.Client
 
                 // Check that we have gotten a complete byte block
                 while (DownloadByteQueue.Count >= 528 ||
-                   FileHandler.FileSize - FileHandler.ActualSize < 528)
+                   FTar.Decryptor.FileSize - FTar.Decryptor.ActualSize < 528)
                 {
                     // Create an array that will hold a complete byte packet
                     byte[] currentEncryptedBlock = new byte[0];
@@ -788,7 +822,7 @@ namespace NetworkModules.Client
                             try
                             {
                                 // Move the block into the decryption handler
-                                fileDownloaded = FileHandler.WriteBytes(EncryptedBlock);
+                                fileDownloaded = FTar.Decryptor.WriteBytes(EncryptedBlock);
 
                                 // Remove the handled bytes
                                 DownloadByteQueue.RemoveRange(0, currentEncryptedBlock.Length);
@@ -796,8 +830,11 @@ namespace NetworkModules.Client
                             // If decryption failed
                             catch
                             {
+                                // Remove this connection from the list of connections
+                                FileTransferSockets.Remove(FTar.connection);
+
                                 // Close the file transfer socket for this client
-                                FileTransferSocket.Close();
+                                FTar.connection.Close();
 
                                 // Log message stating that the file could not be downloaded
                                 OnClientInformation(ClientMessage.Get(11), Responses.Error);
@@ -808,25 +845,42 @@ namespace NetworkModules.Client
                                 return;
                             }
 
+                            // Create the object that holds information about the download
+                            DownloadInformation download = new DownloadInformation()
+                            {
+                                FileName   = FTar.Decryptor.FileName,
+                                FileSize   = FTar.Decryptor.FileSize,
+                                Downloaded = FTar.Decryptor.ActualSize,
+                                IsNew  = false,
+                                Ticket = null, // Client's cant download multiple files for now...
+                            };
 
                             // Call the event
-                            OnDownloadInformation(FileHandler.FileName, FileHandler.FileSize, FileHandler.ActualSize);
+                            OnDownloadInformation(download);
 
                             // If the whole file has been downloaded
                             if (fileDownloaded)
                             {
-                                OnClientInformation(ClientMessage.Get(12, FileHandler.FileName), Responses.OK);
-                                FileTransferSocket.Close();
+                                // Remove this connection from the list of connections
+                                FileTransferSockets.Remove(FTar.connection);
+
+                                // Close the connection
+                                FTar.connection.Close();
+
+                                // Raise information event stating that the file has been downloaded
+                                OnClientInformation(ClientMessage.Get(12, FTar.Decryptor.FileName), Responses.OK);
+
+                                // Return, we don't want to receive any more bytes
                                 return;
                             }
 
                         }
                 }
                 // Keep receiving bytes
-                FileTransferSocket.BeginReceive(DownloadBuffer, 0,
-                                                DownloadBuffer.Length,
-                                                SocketFlags.None,
-                                                new AsyncCallback(DownloadSocketReceiveCallback), FileHandler);
+                FTar.connection.BeginReceive(DownloadBuffer, 0,
+                                             DownloadBuffer.Length,
+                                             SocketFlags.None,
+                                             new AsyncCallback(DownloadSocketReceiveCallback), FTar);
 
             }
         }

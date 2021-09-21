@@ -14,21 +14,11 @@ namespace AMCCore
     }
 
     /// <summary>
-    /// For the file explorer, local or remote navigation
+    /// Contains all the options for the left view
     /// </summary>
-    public enum NavigationLocations
+    public enum Menus
     {
-        /// <summary>
-        /// No navigation
-        /// </summary>
-        None,
-        /// <summary>
-        /// Local PC navigation
-        /// </summary>
-        Local,
-        /// <summary>
-        /// Remote PC navigation
-        /// </summary>
-        Remote
+        Explorer = 0,
+        Downloads = 1
     }
 }

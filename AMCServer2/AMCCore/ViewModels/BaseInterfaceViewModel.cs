@@ -21,6 +21,11 @@ namespace AMCCore
         /// </summary>
         protected string[] CommandHistory;
 
+        /// <summary>
+        /// The download path
+        /// </summary>
+        protected string DownloadPath { get; set; }
+
         #endregion
 
         #region UI Locks
@@ -34,6 +39,11 @@ namespace AMCCore
         /// The explorer items lock
         /// </summary>
         protected object _ExplorerLock;
+
+        /// <summary>
+        /// The downloads lock
+        /// </summary>
+        protected object _DownloadsLock;
 
         #endregion
 
@@ -60,9 +70,14 @@ namespace AMCCore
         public abstract ThreadSafeObservableCollection<ILogMessage> Terminal { get; set; }
 
         /// <summary>
-        /// Gets or sets the current navigation.
+        /// Contains all the downloads
         /// </summary>
-        public abstract NavigationLocations CurrentNavigation { get; set; }
+        public abstract ThreadSafeObservableCollection<IDownloadItem> Downloads { get; set; }
+
+        /// <summary>
+        /// Gets or sets the current menu.
+        /// </summary>
+        public abstract Menus CurrentMenu { get; set; }
 
         #endregion
 
@@ -76,6 +91,7 @@ namespace AMCCore
             // Set default values and instanciate objects
             _TerminalLock = new object();
             _ExplorerLock = new object();
+            _DownloadsLock = new object();
             CommandHistory = new string[0];
             ExplorerItems = new ThreadSafeObservableCollection<FileExplorerObject>();
         }
@@ -148,13 +164,27 @@ namespace AMCCore
         /// Adds the explorer item.
         /// </summary>
         /// <param name="object">The object.</param>
-        protected void AddExplorerItem(FileExplorerObject _object)
+        protected virtual void AddExplorerItem(FileExplorerObject _object)
         {
             // UI cross thread solution
             lock (_ExplorerLock)
             {
                 // Add the object to the file explorer
                 ExplorerItems.Add(_object);
+            }
+        }
+
+        /// <summary>
+        /// Adds the download item.
+        /// </summary>
+        /// <param name="download">The download.</param>
+        protected virtual void AddDownloadItem(IDownloadItem download)
+        {
+            // Lock the UI
+            lock (_DownloadsLock)
+            {
+                // Add the item
+                Downloads.Add(download);
             }
         }
 

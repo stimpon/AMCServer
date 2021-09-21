@@ -19,7 +19,7 @@
                 <ColumnDefinition Width="2.5*"/>
             </Grid.ColumnDefinitions>
 
-            <Border BorderThickness="1" BorderBrush="{Binding CurrentNavigation, Converter={local:NavigationLocationToColorConverter}}" Margin="0,0,1,0">
+            <Border BorderThickness="1" BorderBrush="Red" Margin="0,0,1,0">
                 <Grid>
 
                     <Grid.RowDefinitions>

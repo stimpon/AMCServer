@@ -19,6 +19,8 @@
     <system:String x:Key="Download">&#xf019;</system:String>
     <system:String x:Key="Lock">&#xf023;</system:String>
     <system:String x:Key="FileDownload">&#xf56d;</system:String>
+    <system:String x:Key="FilePhoto">&#xf1c5;</system:String>
+    <system:String x:Key="ArrowDown">&#xf0ab;</system:String>
     <!--#endregion-->
 
 </ResourceDictionary>

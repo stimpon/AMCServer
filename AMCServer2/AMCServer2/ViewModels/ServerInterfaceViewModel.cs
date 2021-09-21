@@ -14,6 +14,7 @@ namespace AMCServer2
     using NetworkModules.Server;
     using AMCCore;
     using System.Windows.Data;
+    using System.Collections.Generic;
     #endregion
 
     /// <summary>
@@ -62,10 +63,15 @@ namespace AMCServer2
         /// </summary>
         public ICommand NextCommand { get; set; }
 
+        /// <summary>
+        /// Command for changing the left menu
+        /// </summary>
+        public ICommand LeftMenuChange { get; set; }
+
         #endregion
 
         #region Overrided properties  
-        
+
         /// <summary>
         /// The current position in the <see cref="F:AMCCore.BaseInterfaceViewModel.CommandHistory" />
         /// </summary>
@@ -86,9 +92,14 @@ namespace AMCServer2
         public override ThreadSafeObservableCollection<ILogMessage> Terminal { get; set; }
 
         /// <summary>
-        /// The current navigation
+        /// Gets or sets the current menu.
         /// </summary>
-        public override NavigationLocations CurrentNavigation { get; set; }
+        public override Menus CurrentMenu { get; set; }
+
+        /// <summary>
+        /// Contains all the downloads
+        /// </summary>
+        public override ThreadSafeObservableCollection<IDownloadItem> Downloads { get; set; }
 
         #endregion
 
@@ -234,6 +245,11 @@ namespace AMCServer2
                 {
                     // Stop all services
                     Container.GetSingleton<ServerHandler>().StopServer();
+
+                    // Clear the path string
+                    CurrentPathOnClientPC = string.Empty;
+                    // Clear the explorer
+                    ExplorerItems.Clear();
                 }
                 // Else if any flags was provided...
                 else
@@ -273,10 +289,10 @@ namespace AMCServer2
                     // :UNBIND >> unbind the server from the currently bound client
                     case "UNBIND": 
                         Container.GetSingleton<ServerHandler>().UnbindServer();
-
+                        // Clear the path string
+                        CurrentPathOnClientPC = string.Empty;
+                        // Clear the explorer
                         ExplorerItems.Clear();
-
-                        this.CurrentNavigation = NavigationLocations.None;
                         break;
 
                     // :getdrives >> Query drive info from the bound client
@@ -344,7 +360,10 @@ namespace AMCServer2
             PreviousCommand = new RelayCommandNoParameters(PreviousCommandEvent);
             // Next command command
             NextCommand = new RelayCommandNoParameters(NextCommandEvent);
+
+            LeftMenuChange = new RelayCommand(MenuChange);
         }
+
         /// <summary>
         /// Subscribes to events.
         /// </summary>
@@ -353,7 +372,10 @@ namespace AMCServer2
             // Subscribe to server events
             Container.GetSingleton<ServerHandler>().NewServerInformation += OnServerInformation;
             Container.GetSingleton<ServerHandler>().NewDataReceived += OnDataReceived;
+            Container.GetSingleton<ServerHandler>().NewDownloadInformation += OnDownloadInformation;
+            
         }
+
         /// <summary>
         /// Creates the binding operations.
         /// </summary>
@@ -361,6 +383,7 @@ namespace AMCServer2
         {
             BindingOperations.EnableCollectionSynchronization(Terminal, _TerminalLock);
             BindingOperations.EnableCollectionSynchronization(ExplorerItems, _ExplorerLock);
+            BindingOperations.EnableCollectionSynchronization(Downloads, _DownloadsLock);
         }
 
         // ==================================================================================================>
@@ -374,15 +397,16 @@ namespace AMCServer2
             // Set the accessable ViewModel to this class
             VM = this;
 
-            // We are not doing any exploring when starting
-            this.CurrentNavigation = NavigationLocations.None;
+            // Set the download path
+            DownloadPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+            // Instanciate the downloads list
+            Downloads = new ThreadSafeObservableCollection<IDownloadItem>();
 
             // This is the standard message that shows when the program starts
             Terminal = new ThreadSafeObservableCollection<ILogMessage>() {
                 new LogMessage() { Content = "AMCServer [Version 1.0.0]", ShowTime = false, Type = Responses.Information } ,
                 new LogMessage() { Content = "(c) 2021 Stimpon",          ShowTime = false, Type = Responses.Information } ,
             };
-
             // Create binding operations
             CreateBindingOperations();
             // Subscribe to events
@@ -445,57 +469,49 @@ namespace AMCServer2
 
             #region When you navigates a client's PC
 
-            try
+
+            // Client sent a HDD object
+            if (e.Data.StartsWith("[DRIVE]"))
             {
-                // Client sent a HDD object
-                if (e.Data.StartsWith("[DRIVE]"))
-                {
-                    // Split the received data
-                    string[] data = e.Data.Substring(7).Split('|');
+                // Split the received data
+                string[] data = e.Data.Substring(7).Split('|');
 
-                    AddExplorerItem(new FileExplorerObject()
-                    {
-                        Name = $"{data[1]} ({data[0]})",
-                        Path = data[0],
-                        Type = ExplorerItemTypes.HDD,
-                        PermissionsDenied = false
-                    });
-                }
-                // Client sent a file object
-                else if (e.Data.StartsWith("[FILE]"))
+                AddExplorerItem(new FileExplorerObject()
                 {
-                    // Split the received data
-                    string[] data = e.Data.Substring(6).Split('|');
-
-                    // Add item to the file explorer
-                    AddExplorerItem(new FileExplorerObject()
-                    {
-                        Name = data[0],
-                        Extension = data[1],
-                        Size = long.Parse(data[2]),
-                        Type = ExplorerItemTypes.File
-                    });
-                }
-                // Client sent a folder
-                else if (e.Data.StartsWith("[FOLDER]"))
-                {
-                    // Split the recieved data
-                    string[] data = e.Data.Substring(8).Split('|');
-
-                    // Add the file explorer item
-                    AddExplorerItem(new FileExplorerObject()
-                    {
-                        Name = data[0],
-                        Type = ExplorerItemTypes.Folder,
-                        PermissionsDenied = bool.Parse(data[1])
-                    });
-                }
+                    Name = $"{data[1]} ({data[0]})",
+                    Path = data[0],
+                    Type = ExplorerItemTypes.HDD,
+                    PermissionsDenied = false
+                });
             }
-            // We want to always do this...
-            finally
+            // Client sent a file object
+            else if (e.Data.StartsWith("[FILE]"))
             {
-                // We are navigating a client's PC
-                this.CurrentNavigation = NavigationLocations.Remote;
+                // Split the received data
+                string[] data = e.Data.Substring(6).Split('|');
+
+                // Add item to the file explorer
+                AddExplorerItem(new FileExplorerObject()
+                {
+                    Name = data[0],
+                    Extension = data[1],
+                    Size = long.Parse(data[2]),
+                    Type = ExplorerItemTypes.File
+                });
+            }
+            // Client sent a folder
+            else if (e.Data.StartsWith("[FOLDER]"))
+            {
+                // Split the recieved data
+                string[] data = e.Data.Substring(8).Split('|');
+
+                // Add the file explorer item
+                AddExplorerItem(new FileExplorerObject()
+                {
+                    Name = data[0],
+                    Type = ExplorerItemTypes.Folder,
+                    PermissionsDenied = bool.Parse(data[1])
+                });
             }
 
 
@@ -554,6 +570,56 @@ namespace AMCServer2
             #endregion
         }
 
+        /// <summary>
+        /// When new information is received about a download
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void OnDownloadInformation(object sender, DownloadEventArgs e)
+        {
+            // If this is a new download
+            if (e.Download.IsNew)
+            {
+                // Create the new download and add it
+                DownloadItemViewModel download = new DownloadItemViewModel()
+                {
+                    ClientID        = e.Client.ID,
+                    FileName        = e.Download.FileName,
+                    DownloadID      = e.Download.Ticket,
+                    FileSize        = e.Download.FileSize,
+                    DownloadedBytes = e.Download.Downloaded,
+                    FilePath        = DownloadPath,
+                    IsDownloading   = true
+                };
+
+                download.CalculateProgress();
+
+                // Add the download to the list
+                AddDownloadItem(download);
+            }
+            // Else...
+            else
+            {
+                // Update the existsing download item
+
+                // Get the item from the downloads list
+                var download = Downloads.FirstOrDefault(d => d.DownloadID.CompareTo(e.Download.Ticket) == 0);
+                // If the download item actually exists...
+                if(download != null)
+                {
+                    // Update the downloaded bytes property
+                    download.DownloadedBytes = e.Download.Downloaded;
+
+                    download.CalculateProgress();
+
+                    // Check if the file is downloaded (This property is only for the UI)
+                    if (download.FileSize.Equals(download.DownloadedBytes))
+                        // Set downloading to false if the file is downloaded
+                        download.IsDownloading = false;
+                }
+            }
+        }
+
         #endregion
 
         #region Command actions
@@ -589,6 +655,24 @@ namespace AMCServer2
         }
 
         /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="obj"></param>
+        private void MenuChange(object obj)
+        {
+            // Parse the command parameter
+            if(int.TryParse(obj.ToString(), out int menu))
+            {
+                // Check what button was pressed
+                switch (menu)
+                {
+                    case 1: CurrentMenu = Menus.Explorer;  break;
+                    case 2: CurrentMenu = Menus.Downloads; break;
+                }
+            }
+        }
+
+        /// <summary>
         /// Is called when the download button is clicked on a file
         /// </summary>
         /// <param name="o"></param>
@@ -600,7 +684,7 @@ namespace AMCServer2
             // We need to call the receive file function before the server can download a file from the client
             Container.GetSingleton<ServerHandler>().ReceiveFile(
                 Container.GetSingleton<ServerHandler>().BoundClient,
-                Environment.GetFolderPath(Environment.SpecialFolder.Desktop));
+                DownloadPath);
 
             // Send downloading request
             Container.GetSingleton<ServerHandler>().Send($"[DOWNLOAD]{CurrentPathOnClientPC}\\{Item.Name}");

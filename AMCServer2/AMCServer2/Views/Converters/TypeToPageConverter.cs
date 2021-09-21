@@ -4,6 +4,7 @@
     using System;
     using AMCServer;
     using System.Globalization;
+    using AMCCore;
 
     public class TypeToPageConverter : BaseValueConverter<TypeToPageConverter>
     {
@@ -17,17 +18,24 @@
         /// <returns></returns>
         public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            // Check the provided value
-            switch ((MainViews)value)
+            // If this is a main view
+            if(Enum.TryParse<MainViews>(value.ToString(), out MainViews mainView))
             {
-                // Show a new instance of the serve interface
-                case MainViews.ServerInterface:
-                    return new ServerView();
+                // Check the provided value
+                switch (mainView)
+                {
+                    // Show a new instance of the serve interface
+                    case MainViews.ServerInterface:
+                        return new ServerView();
 
-                // Converter should never receive an invalid type
-                default:
-                    throw new Exception("Page does not exist");
+                    // Converter should never receive an invalid type
+                    default:
+                        throw new Exception("Page does not exist");
+                }
             }
+
+            // Return null if the provided value is invalid
+            return null;
         }
 
         /// <summary>

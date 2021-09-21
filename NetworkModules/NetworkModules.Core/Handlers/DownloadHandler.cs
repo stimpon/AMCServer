@@ -57,7 +57,7 @@ namespace NetworkModules.Core
             object optParam = null)
             :base(aes, fileName, filePath, fileSize)  {
             // Declare variables
-            this.DownloadBuffer    = new byte[fileSize];
+            this.DownloadBuffer    = new byte[26400];
             this.DownloadByteQueue = new List<byte>();
             this.DownloadSocket    = sender;
             this.OptionalParameter = optParam;

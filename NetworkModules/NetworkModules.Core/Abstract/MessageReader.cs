@@ -90,8 +90,12 @@
                     // Loop through all parameters
                     for(int i = 0; i < parameters.Length; i++)
                     {
-                        // Insert the parameter
-                        msg.Message = msg.Message.Replace("{" + i + "}", parameters[i].ToString());
+                        // If the parameter is not missing
+                        if (parameters[i] != null)
+                        {
+                            // Insert the parameter
+                            msg.Message = msg.Message.Replace("{" + i + "}", parameters[i].ToString());
+                        }
                     }
                 }
 

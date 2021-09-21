@@ -10,7 +10,8 @@
         AllowsTransparency="True"
         ResizeMode="NoResize"
         Background="Transparent"
-        Title="MainWindow" Height="630" Width="1500" IsTabStop="False">
+        Title="MainWindow" Height="630" Width="1500" IsTabStop="False"
+        >
 
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="30"/>
@@ -37,7 +38,7 @@
 
             <Border Grid.Row="1" Background="Black"/>
 
-            <Frame Grid.Row="2" Content="{Binding ApplicationViewModel.CurrentPage, Source={x:Static local:Container.Instance}, Converter={local:TypeToPageConverter}}" IsTabStop="False"/>
+            <Frame Grid.Row="2" Content="{Binding ApplicationViewModel.CurrentPage, Source={x:Static local:Container.Instance}, Converter={local:TypeToPageConverter}}" IsTabStop="False" NavigationUIVisibility="Hidden"/>
 
         </Grid>
     </Border>

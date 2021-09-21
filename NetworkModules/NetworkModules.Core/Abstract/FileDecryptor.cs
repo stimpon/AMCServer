@@ -62,8 +62,8 @@ namespace NetworkModules.Core
         {
             // Set file properties
             this.Decryptor = Decryptor;
-            this.FileName = FileName;
-            this.FileSize = FileSize;
+            this.FileName  = FileName;
+            this.FileSize  = FileSize;
 
             // Create the decryptor
             Crypto = Decryptor.CreateDecryptor();

@@ -1,43 +1,38 @@
 ﻿/// <summary>
 /// Root namespace
 /// </summary>
-namespace AMCClient2
+namespace AMCServer2
 {
-    // Requiread namespaces
     using AMCCore;
+    // Required namespaces
     using System;
     using System.Globalization;
-    using System.Windows.Media;
+    using System.Windows;
 
-    /// <summary>
-    /// Converts a location to a color, we want the explorer to shine a different color depending on if the file explorer
-    /// is showing content on a remote PC or if it is local
-    /// </summary>
-    /// <seealso cref="AMCServer2.BaseValueConverter&lt;AMCServer2.Views.NavigationLocationToColorConverter&gt;" />
-    public class NavigationLocationToColorConverter : BaseValueConverter<NavigationLocationToColorConverter>
+    public class MenuIntToVisibilityConverter : BaseValueConverter<MenuIntToVisibilityConverter>
     {
         /// <summary>
-        /// Convert the provided value
+        /// This functin matches the provided converter parameter with the current menu and returns a visibility
         /// </summary>
         /// <param name="value"></param>
         /// <param name="targetType"></param>
         /// <param name="parameter"></param>
         /// <param name="culture"></param>
         /// <returns></returns>
+        /// <exception cref="System.NotImplementedException"></exception>
         public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            // Cast the provided value as a Navigation location
-            switch ((NavigationLocations)value)
+            // If the parameter can be parsed as an int and if the value is a menu
+            if(int.TryParse(parameter.ToString(), out int menuInt) && Enum.TryParse<Menus>(value.ToString(), out Menus menu))
             {
-                case NavigationLocations.None:
-                    return Brushes.Gray;
-                case NavigationLocations.Local:
-                    return Brushes.Green;
-                case NavigationLocations.Remote:
-                    return Brushes.Red;
-
-                default: return Brushes.White;
+                // IF this is the menu that should be visible...
+                if ((Menus)menuInt == menu) return Visibility.Visible;
+                // Else... This menu should be collapsed
+                else return Visibility.Collapsed;
             }
+
+            // If provided values are invalid, just return a collapsed visibility
+            return Visibility.Collapsed;
         }
 
         /// <summary>

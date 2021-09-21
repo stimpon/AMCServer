@@ -120,16 +120,22 @@ namespace NetworkModules.Server
         #region Events
 
         /// <summary>
-        /// When the server has infromation for the user
+        /// Is raised when the server raises a message
         /// </summary>
         public EventHandler<InformationEventArgs> 
             NewServerInformation;
 
         /// <summary>
-        /// When data was received from a client
+        /// Is raised when data is received from a client
         /// </summary>
         public EventHandler<ClientInformationEventArgs> 
             NewDataReceived;
+
+        /// <summary>
+        /// Is raised when a download is starting, and then for each update (Information about the download is passed with the event)
+        /// </summary>
+        public EventHandler<DownloadEventArgs>
+            NewDownloadInformation;
 
         #endregion
 
@@ -420,7 +426,7 @@ namespace NetworkModules.Server
             }
 
             // Find the client with the provided ID
-            var client = ActiveConnections.FirstOrDefault(c => c.ID == c.ID);
+            var client = ActiveConnections.FirstOrDefault(c => c.ID == clientID);
 
             // If the client exists in the list of active connections
             if (client != null)
@@ -569,7 +575,7 @@ namespace NetworkModules.Server
         #region Event functions
 
         /// <summary>
-        /// Event callback
+        /// <see cref="NewServerInformation"/>
         /// </summary>
         /// <param name="Data"></param>
         protected virtual void OnServerInformation(IMessage message, Responses type, bool AddTimeStamp = true)
@@ -582,13 +588,28 @@ namespace NetworkModules.Server
         }
 
         /// <summary>
-        /// Event callback
+        /// <see cref="NewDataReceived"/>
         /// </summary>
-        /// <param name="Client"></param>
-        protected virtual void OnDataReceived(ConnectionViewModel Client, string Data)
+        /// <param name="client"></param>
+        protected virtual void OnDataReceived(ConnectionViewModel client, string Data)
         {
             // Fire the event
-            NewDataReceived(this, new ClientInformationEventArgs() { Client = Client, Data = Data, InformationTimeStamp = DateTime.Now.ToString() });
+            NewDataReceived(this, new ClientInformationEventArgs() { Client = client, Data = Data, InformationTimeStamp = DateTime.Now.ToString() });
+        }
+
+        /// <summary>
+        /// <see cref="OnDownloadInformation(IDownload)"/>
+        /// </summary>
+        /// <param name="download"></param>
+        protected virtual void OnDownloadInformation(DownloadItemViewModel download, ConnectionViewModel client)
+        {
+            // Raise the event
+            NewDownloadInformation?.Invoke(this, new DownloadEventArgs()
+            {
+                Download = download,
+                InformationTimeStamp = DateTime.Now.ToString(),
+                Client = client
+            });
         }
 
         #endregion
@@ -887,7 +908,7 @@ namespace NetworkModules.Server
                 // Declare filename
                 string FileName = String.Empty;
                 // Declare filesize
-                long FileSize = -1;
+                long FileSize = 0;
 
                 try
                 {
@@ -919,14 +940,22 @@ namespace NetworkModules.Server
                     socket.Receive(Data);
                     FileSize = long.Parse(Encoding.Default.GetString(client.Decryptor.Decrypt(Data, true)));
                 }
-
                 // Close the connection if it didn't work
-                catch(Exception ex)
+                catch(SocketException sx)
                 { 
                     // Close the connection
                     socket.Close(); 
                     // Send error message stating what happened
-                    OnServerInformation(ServerMessage.Get(32, ftar.FileName, ex.Message), Responses.Error);
+                    OnServerInformation(SocketExceptionMessage.Get(sx.ErrorCode), Responses.Error);
+                    // Don't continue if key exchange failed
+                    return;
+                }
+                catch
+                {
+                    // Close the socket
+                    socket.Close();
+                    // Return, serious errors occurred
+                    return;
                 }
 
                 // Create the download handler
@@ -946,6 +975,17 @@ namespace NetworkModules.Server
 
                 // Raise server information event with info about the download
                 OnServerInformation(ServerMessage.Get(22, client.ID, FileName, handler.DownloadID), Responses.Information);
+
+                // Raise information about the download
+                OnDownloadInformation(new DownloadItemViewModel()
+                {
+                    FileName   = FileName,
+                    FileSize   = FileSize,
+                    Downloaded = 0,
+                    IsNew      = true,
+                    Ticket     = handler.DownloadID
+
+                }, (handler.OptionalParameter as ConnectionViewModel));
 
                 // Begin receiving file from the client
                 socket.BeginReceive(handler.DownloadBuffer, 0, handler.DownloadBuffer.Length, SocketFlags.None,
@@ -1064,6 +1104,16 @@ namespace NetworkModules.Server
 
                                 // Remove the handled bytes
                                 handler.DownloadByteQueue.RemoveRange(0, currentEncryptedBlock.Length);
+
+                                // Raise information about the download
+                                OnDownloadInformation(new DownloadItemViewModel()
+                                {
+                                    FileName   = handler.FileName,
+                                    FileSize   = handler.FileSize,
+                                    Downloaded = handler.ActualSize,
+                                    IsNew      = false,
+                                    Ticket     = handler.DownloadID,
+                                }, (handler.OptionalParameter as ConnectionViewModel));
                             }
                             // If decryption failed
                             catch
